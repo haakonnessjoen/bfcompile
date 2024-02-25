@@ -68,10 +68,7 @@ func NewLexer(reader io.Reader) *Lexer {
 	}
 }
 
-// Lex scans the input for the next token. It returns the position of the token,
-// the token's type, and the literal value.
 func (l *Lexer) Lex() (Position, Token, string) {
-	// keep looping until we return a token
 	for {
 		r, _, err := l.reader.ReadRune()
 		if err != nil {
@@ -79,11 +76,8 @@ func (l *Lexer) Lex() (Position, Token, string) {
 				return l.pos, EOF, ""
 			}
 
-			// at this point there isn't much we can do, and the compiler
-			// should just return the raw error to the user
 			panic(err)
 		}
-		// update the column to the position of the newly read in rune
 		l.pos.column++
 
 		switch r {
