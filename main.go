@@ -85,7 +85,7 @@ func parseFile(filename string) {
 
 		switch tok {
 		case ADD, SUB, INCP, DECP, OUT, IN:
-			tokens = append(tokens, ParseToken{pos, tok, address, 0})
+			tokens = append(tokens, ParseToken{pos, tok, address, 1})
 		case JMPF:
 			jumps++
 			jumpstack.Push(jumps)
@@ -100,8 +100,36 @@ func parseFile(filename string) {
 		}
 	}
 
+	tokens = optimize(tokens)
 	PrintIL(tokens)
-	//PrintC(tokens)
+}
+
+func optimize(tokens []ParseToken) []ParseToken {
+	newTokens := make([]ParseToken, 0, len(tokens))
+
+	for i := 0; i < len(tokens); i++ {
+		t := tokens[i]
+
+		if t.tok == ADD || t.tok == SUB || t.tok == INCP || t.tok == DECP {
+			count := 1
+			for j := i + 1; j < len(tokens); j++ {
+				if tokens[j].tok != t.tok {
+					break
+				}
+				count++
+			}
+			newTokens = append(newTokens, ParseToken{t.pos, t.tok, t.address, count})
+			i += count - 1
+		} else {
+			newTokens = append(newTokens, t)
+		}
+	}
+
+	return newTokens
+}
+
+func indent(n int) string {
+	return strings.Repeat("\t", n)
 }
 
 // PrintIL prints the tokens as IL code
@@ -116,16 +144,16 @@ func PrintIL(tokens []ParseToken) {
 		switch t.tok {
 		case ADD:
 			fmt.Printf("	%%v =w loadub %%p\n")
-			fmt.Printf("	%%v =w add %%v, 1\n")
+			fmt.Printf("	%%v =w add %%v, %d\n", t.extra)
 			fmt.Printf("	storeb %%v, %%p\n")
 		case SUB:
 			fmt.Printf("	%%v =w loadub %%p\n")
-			fmt.Printf("	%%v =w sub %%v, 1\n")
+			fmt.Printf("	%%v =w sub %%v, %d\n", t.extra)
 			fmt.Printf("	storeb %%v, %%p\n")
 		case INCP:
-			fmt.Printf("	%%p =l add %%p, 1\n")
+			fmt.Printf("	%%p =l add %%p, %d\n", t.extra)
 		case DECP:
-			fmt.Printf("	%%p =l sub %%p, 1\n")
+			fmt.Printf("	%%p =l sub %%p, %d\n", t.extra)
 		case OUT:
 			fmt.Printf("	%%r =w call $write(w 1, l %%p, w 1)\n")
 		case IN:
@@ -156,24 +184,43 @@ func PrintC(tokens []ParseToken) {
 	fmt.Println("int main() {")
 	fmt.Println("	uint8_t *p = mem;")
 
+	indentLevel := 0
 	for _, t := range tokens {
 		switch t.tok {
 		case ADD:
-			fmt.Println("	(*p)++;")
+			if t.extra == 1 {
+				fmt.Printf("%s	(*p)++;\n", indent(indentLevel))
+			} else {
+				fmt.Printf("%s	*p += %d;\n", indent(indentLevel), t.extra)
+			}
 		case SUB:
-			fmt.Println("	(*p)--;")
+			if t.extra == 1 {
+				fmt.Printf("%s	(*p)--;\n", indent(indentLevel))
+			} else {
+				fmt.Printf("%s	*p -= %d;\n", indent(indentLevel), t.extra)
+			}
 		case INCP:
-			fmt.Println("	p++;")
+			if t.extra == 1 {
+				fmt.Printf("%s	p++;\n", indent(indentLevel))
+			} else {
+				fmt.Printf("%s	p += %d;\n", indent(indentLevel), t.extra)
+			}
 		case DECP:
-			fmt.Println("	p--;")
+			if t.extra == 1 {
+				fmt.Printf("%s	p--;\n", indent(indentLevel))
+			} else {
+				fmt.Printf("%s	p -= %d;\n", indent(indentLevel), t.extra)
+			}
 		case OUT:
-			fmt.Println("	putchar(*p);")
+			fmt.Printf("%s	putchar(*p);\n", indent(indentLevel))
 		case IN:
-			fmt.Println("	*p = getchar();")
+			fmt.Printf("%s	*p = getchar();\n", indent(indentLevel))
 		case JMPF:
-			fmt.Printf("	while (*p) {\n")
+			fmt.Printf("%s	while (*p) {\n", indent(indentLevel))
+			indentLevel++
 		case JMPB:
-			fmt.Printf("	}\n")
+			indentLevel--
+			fmt.Printf("%s	}\n", indent(indentLevel))
 		}
 	}
 	fmt.Printf("	return 0;\n")

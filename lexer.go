@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 )
 
@@ -33,8 +34,21 @@ var tokens = []string{
 	JMPB: "JMPB",
 }
 
+var humantokens = []string{
+	EOF: "",
+
+	ADD:  "+",
+	SUB:  "-",
+	INCP: ">",
+	DECP: "<",
+	OUT:  ".",
+	IN:   ",",
+	JMPF: "[",
+	JMPB: "]",
+}
+
 func (t Token) String() string {
-	return tokens[t]
+	return fmt.Sprintf("%s (%s)", humantokens[t], tokens[t])
 }
 
 type Position struct {
