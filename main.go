@@ -101,47 +101,81 @@ func parseFile(filename string) {
 	}
 
 	PrintIL(tokens)
+	//PrintC(tokens)
 }
 
+// PrintIL prints the tokens as IL code
 func PrintIL(tokens []ParseToken) {
-	fmt.Println("data $ch = { w 0 }")
 	fmt.Println("data $MEM = { z 30000 }")
+
 	fmt.Println("export function w $main() {")
 	fmt.Println("@start")
-	fmt.Println("	%P =l copy $MEM")
+	fmt.Printf("	%%p =l copy $MEM\n")
 	for _, t := range tokens {
+		fmt.Printf("# Line %d, Pos %d: %v\n", t.pos.line, t.pos.column, t.tok)
 		switch t.tok {
 		case ADD:
-			fmt.Printf("	%%v =w loadub %%P\n")
+			fmt.Printf("	%%v =w loadub %%p\n")
 			fmt.Printf("	%%v =w add %%v, 1\n")
-			fmt.Printf("	storew %%v, %%P\n")
+			fmt.Printf("	storeb %%v, %%p\n")
 		case SUB:
-			fmt.Printf("	%%v =w loadub %%P\n")
+			fmt.Printf("	%%v =w loadub %%p\n")
 			fmt.Printf("	%%v =w sub %%v, 1\n")
-			fmt.Printf("	storew %%v, %%P\n")
+			fmt.Printf("	storeb %%v, %%p\n")
 		case INCP:
-			fmt.Printf("	%%P =l add %%P, 1\n")
+			fmt.Printf("	%%p =l add %%p, 1\n")
 		case DECP:
-			fmt.Printf("	%%P =l sub %%P, 1\n")
+			fmt.Printf("	%%p =l sub %%p, 1\n")
 		case OUT:
-			fmt.Printf("	%%fd =w copy 1\n")
-			fmt.Printf("	%%ch =w loadub %%P\n")
-			fmt.Printf("	storew %%ch, $ch\n")
-			fmt.Printf("	%%r =w call $write(w %%fd, l $ch, w 1)\n")
+			fmt.Printf("	%%r =w call $write(w 1, l %%p, w 1)\n")
 		case IN:
-			// TODO
+			fmt.Printf("    %%r =w call $read(w 0, l %%p, w 1)\n")
 		case JMPF:
 			fmt.Printf("@JMP%df\n", t.extra)
-			fmt.Printf("	%%v =w loadub %%P\n")
-			fmt.Printf("	jnz %%v, @JMP%dfd, @JMP%db\n", t.extra, t.extra)
+			fmt.Printf("	%%v =w loadub %%p\n")
+			fmt.Printf("	jnz %%v, @JMP%dfd, @JMP%dbd\n", t.extra, t.extra)
 			fmt.Printf("@JMP%dfd\n", t.extra)
 		case JMPB:
-			fmt.Printf("@JMP%db\n", t.extra)
-			fmt.Printf("	%%v =w loadub %%P\n")
-			fmt.Printf("	jnz %%v, @JMP%df, @JMP%dbd\n", t.extra, t.extra)
+			fmt.Printf("	jmp @JMP%df\n", t.extra)
 			fmt.Printf("@JMP%dbd\n", t.extra)
 		}
 	}
 	fmt.Println("	ret 0")
+	fmt.Println("}")
+}
+
+// PrintC prints the tokens as C code
+func PrintC(tokens []ParseToken) {
+	fmt.Println("#include <stdio.h>")
+	fmt.Println("#include <stdlib.h>")
+	fmt.Println("#include <string.h>")
+	fmt.Println("#include <stdint.h>")
+	fmt.Println("#include <stdbool.h>")
+
+	fmt.Printf("uint8_t mem[30000];\n")
+	fmt.Println("int main() {")
+	fmt.Println("	uint8_t *p = mem;")
+
+	for _, t := range tokens {
+		switch t.tok {
+		case ADD:
+			fmt.Println("	(*p)++;")
+		case SUB:
+			fmt.Println("	(*p)--;")
+		case INCP:
+			fmt.Println("	p++;")
+		case DECP:
+			fmt.Println("	p--;")
+		case OUT:
+			fmt.Println("	putchar(*p);")
+		case IN:
+			fmt.Println("	*p = getchar();")
+		case JMPF:
+			fmt.Printf("	while (*p) {\n")
+		case JMPB:
+			fmt.Printf("	}\n")
+		}
+	}
+	fmt.Printf("	return 0;\n")
 	fmt.Println("}")
 }
