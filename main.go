@@ -9,12 +9,14 @@ import (
 var (
 	optGenerator string
 	optOptimize  bool
+	optComments  bool
 )
 
 func main() {
 	// parse command line arguments
 	flag.StringVar(&optGenerator, "g", "qbe", "Generator to use, qbe or c")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
+	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
 
 	// Customize usage message
 	flag.Usage = func() {
@@ -45,8 +47,8 @@ func main() {
 
 	switch optGenerator {
 	case "qbe":
-		PrintIL(tokens)
+		PrintIL(tokens, optComments)
 	case "c":
-		PrintC(tokens)
+		PrintC(tokens, optComments)
 	}
 }

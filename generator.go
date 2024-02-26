@@ -3,15 +3,17 @@ package main
 import "fmt"
 
 // PrintIL prints the tokens as IL code
-func PrintIL(tokens []ParseToken) {
+func PrintIL(tokens []ParseToken, includeComments bool) {
 	fmt.Println("data $MEM = { z 30000 }")
 
 	fmt.Println("export function w $main() {")
 	fmt.Println("@start")
 	fmt.Printf("	%%p =l copy $MEM\n")
 	for _, t := range tokens {
-		// Uncomment to get inline comments showing the current operation
-		fmt.Printf("# Line %d, Pos %d: %v\n", t.pos.line, t.pos.column, t.tok)
+		if includeComments {
+			fmt.Printf("# Line %d, Pos %d: %v\n", t.pos.line, t.pos.column, t.tok)
+		}
+
 		switch t.tok.Tok {
 		case ADD:
 			fmt.Printf("	%%v =w loadub %%p\n")
@@ -28,7 +30,7 @@ func PrintIL(tokens []ParseToken) {
 		case OUT:
 			fmt.Printf("	%%r =w call $write(w 1, l %%p, w 1)\n")
 		case IN:
-			fmt.Printf("    %%r =w call $read(w 0, l %%p, w 1)\n")
+			fmt.Printf("	%%r =w call $read(w 0, l %%p, w 1)\n")
 		case JMPF:
 			fmt.Printf("@JMP%df\n", t.extra)
 			fmt.Printf("	%%v =w loadub %%p\n")
@@ -44,7 +46,7 @@ func PrintIL(tokens []ParseToken) {
 }
 
 // PrintC prints the tokens as C code
-func PrintC(tokens []ParseToken) {
+func PrintC(tokens []ParseToken, includeComments bool) {
 	fmt.Println("#include <stdio.h>")
 	fmt.Println("#include <stdint.h>")
 
@@ -54,6 +56,10 @@ func PrintC(tokens []ParseToken) {
 
 	indentLevel := 0
 	for _, t := range tokens {
+		if includeComments {
+			fmt.Printf("%s	// Line %d, Pos %d: %v\n", indent(indentLevel), t.pos.line, t.pos.column, t.tok)
+		}
+
 		switch t.tok.Tok {
 		case ADD:
 			if t.extra == 1 {
