@@ -6,7 +6,13 @@ import (
 	"io"
 )
 
-type Token int
+type Token struct {
+	Tok       TokenId
+	TokenName string
+	Character string
+}
+
+type TokenId int
 
 const (
 	EOF = iota
@@ -34,21 +40,8 @@ var tokens = []string{
 	JMPB: "JMPB",
 }
 
-var humantokens = []string{
-	EOF: "",
-
-	ADD:  "+",
-	SUB:  "-",
-	INCP: ">",
-	DECP: "<",
-	OUT:  ".",
-	IN:   ",",
-	JMPF: "[",
-	JMPB: "]",
-}
-
 func (t Token) String() string {
-	return fmt.Sprintf("%s (%s)", humantokens[t], tokens[t])
+	return fmt.Sprintf("%s (%s)", t.Character, t.TokenName)
 }
 
 type Position struct {
@@ -68,12 +61,12 @@ func NewLexer(reader io.Reader) *Lexer {
 	}
 }
 
-func (l *Lexer) Lex() (Position, Token, string) {
+func (l *Lexer) Lex() (Position, Token) {
 	for {
 		r, _, err := l.reader.ReadRune()
 		if err != nil {
 			if err == io.EOF {
-				return l.pos, EOF, ""
+				return l.pos, Token{EOF, tokens[EOF], ""}
 			}
 
 			panic(err)
@@ -85,21 +78,21 @@ func (l *Lexer) Lex() (Position, Token, string) {
 			l.pos.line++
 			l.pos.column = 0
 		case '+':
-			return l.pos, ADD, string(r)
+			return l.pos, Token{ADD, tokens[ADD], string(r)}
 		case '-':
-			return l.pos, SUB, string(r)
+			return l.pos, Token{SUB, tokens[SUB], string(r)}
 		case '>':
-			return l.pos, INCP, string(r)
+			return l.pos, Token{INCP, tokens[INCP], string(r)}
 		case '<':
-			return l.pos, DECP, string(r)
+			return l.pos, Token{DECP, tokens[DECP], string(r)}
 		case '.':
-			return l.pos, OUT, string(r)
+			return l.pos, Token{OUT, tokens[OUT], string(r)}
 		case ',':
-			return l.pos, IN, string(r)
+			return l.pos, Token{IN, tokens[IN], string(r)}
 		case '[':
-			return l.pos, JMPF, string(r)
+			return l.pos, Token{JMPF, tokens[JMPF], string(r)}
 		case ']':
-			return l.pos, JMPB, string(r)
+			return l.pos, Token{JMPB, tokens[JMPB], string(r)}
 		default:
 			continue
 		}

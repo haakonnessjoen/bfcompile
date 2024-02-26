@@ -55,15 +55,14 @@ func parseFile(filename string) []ParseToken {
 
 	lexer := NewLexer(file)
 	for {
-		pos, tok, _ := lexer.Lex()
-		if tok == EOF {
+		pos, tok := lexer.Lex()
+		if tok.Tok == EOF {
 			break
 		}
 
-		//fmt.Printf("%d:%d\t%s\t%s\n", pos.line, pos.column, tok.String(), lit)
 		address := len(tokens)
 
-		switch tok {
+		switch tok.Tok {
 		case ADD, SUB, INCP, DECP, OUT, IN:
 			tokens = append(tokens, ParseToken{pos, tok, address, 1})
 		case JMPF:
@@ -88,11 +87,12 @@ func optimize(tokens []ParseToken) []ParseToken {
 
 	for i := 0; i < len(tokens); i++ {
 		t := tokens[i]
+		token := t.tok.Tok
 
-		if t.tok == ADD || t.tok == SUB || t.tok == INCP || t.tok == DECP {
+		if token == ADD || token == SUB || token == INCP || token == DECP {
 			count := 1
 			for j := i + 1; j < len(tokens); j++ {
-				if tokens[j].tok != t.tok {
+				if tokens[j].tok.Tok != token {
 					break
 				}
 				count++

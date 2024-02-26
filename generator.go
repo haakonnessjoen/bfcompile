@@ -11,8 +11,8 @@ func PrintIL(tokens []ParseToken) {
 	fmt.Printf("	%%p =l copy $MEM\n")
 	for _, t := range tokens {
 		// Uncomment to get inline comments showing the current operation
-		// fmt.Printf("# Line %d, Pos %d: %v\n", t.pos.line, t.pos.column, t.tok)
-		switch t.tok {
+		fmt.Printf("# Line %d, Pos %d: %v\n", t.pos.line, t.pos.column, t.tok)
+		switch t.tok.Tok {
 		case ADD:
 			fmt.Printf("	%%v =w loadub %%p\n")
 			fmt.Printf("	%%v =w add %%v, %d\n", t.extra)
@@ -54,7 +54,7 @@ func PrintC(tokens []ParseToken) {
 
 	indentLevel := 0
 	for _, t := range tokens {
-		switch t.tok {
+		switch t.tok.Tok {
 		case ADD:
 			if t.extra == 1 {
 				fmt.Printf("%s	(*p)++;\n", indent(indentLevel))
