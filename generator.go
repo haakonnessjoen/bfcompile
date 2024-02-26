@@ -9,6 +9,7 @@ func PrintIL(tokens []ParseToken, includeComments bool) {
 	fmt.Println("export function w $main() {")
 	fmt.Println("@start")
 	fmt.Printf("	%%p =l copy $MEM\n")
+	fmt.Printf("	%%v =l copy 0\n")
 	for _, t := range tokens {
 		if includeComments {
 			fmt.Printf("# Line %d, Pos %d: %v\n", t.pos.line, t.pos.column, t.tok)
@@ -16,24 +17,26 @@ func PrintIL(tokens []ParseToken, includeComments bool) {
 
 		switch t.tok.Tok {
 		case ADD:
-			fmt.Printf("	%%v =w loadub %%p\n")
 			fmt.Printf("	%%v =w add %%v, %d\n", t.extra)
 			fmt.Printf("	storeb %%v, %%p\n")
+			fmt.Printf("    %%v =w extub %%v\n")
 		case SUB:
-			fmt.Printf("	%%v =w loadub %%p\n")
 			fmt.Printf("	%%v =w sub %%v, %d\n", t.extra)
 			fmt.Printf("	storeb %%v, %%p\n")
+			fmt.Printf("    %%v =w extub %%v\n")
 		case INCP:
 			fmt.Printf("	%%p =l add %%p, %d\n", t.extra)
+			fmt.Printf("	%%v =w loadub %%p\n")
 		case DECP:
 			fmt.Printf("	%%p =l sub %%p, %d\n", t.extra)
+			fmt.Printf("	%%v =w loadub %%p\n")
 		case OUT:
-			fmt.Printf("	%%r =w call $write(w 1, l %%p, w 1)\n")
+			fmt.Printf("	call $write(w 1, l %%p, w 1)\n")
 		case IN:
-			fmt.Printf("	%%r =w call $read(w 0, l %%p, w 1)\n")
+			fmt.Printf("    call $read(w 0, l %%p, w 1)\n")
+			fmt.Printf("	%%v =w loadub %%p\n")
 		case JMPF:
 			fmt.Printf("@JMP%df\n", t.extra)
-			fmt.Printf("	%%v =w loadub %%p\n")
 			fmt.Printf("	jnz %%v, @JMP%dfd, @JMP%dbd\n", t.extra, t.extra)
 			fmt.Printf("@JMP%dfd\n", t.extra)
 		case JMPB:
