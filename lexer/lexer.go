@@ -1,4 +1,4 @@
-package main
+package lexer
 
 import (
 	"bufio"
@@ -45,54 +45,54 @@ func (t Token) String() string {
 }
 
 type Position struct {
-	line   int
-	column int
+	Line   int
+	Column int
 }
 
 type Lexer struct {
-	pos    Position
-	reader *bufio.Reader
+	Pos    Position
+	Reader *bufio.Reader
 }
 
 func NewLexer(reader io.Reader) *Lexer {
 	return &Lexer{
-		pos:    Position{line: 1, column: 0},
-		reader: bufio.NewReader(reader),
+		Pos:    Position{Line: 1, Column: 0},
+		Reader: bufio.NewReader(reader),
 	}
 }
 
 func (l *Lexer) Lex() (Position, Token) {
 	for {
-		r, _, err := l.reader.ReadRune()
+		r, _, err := l.Reader.ReadRune()
 		if err != nil {
 			if err == io.EOF {
-				return l.pos, Token{EOF, tokens[EOF], ""}
+				return l.Pos, Token{EOF, tokens[EOF], ""}
 			}
 
 			panic(err)
 		}
-		l.pos.column++
+		l.Pos.Column++
 
 		switch r {
 		case '\n':
-			l.pos.line++
-			l.pos.column = 0
+			l.Pos.Line++
+			l.Pos.Column = 0
 		case '+':
-			return l.pos, Token{ADD, tokens[ADD], string(r)}
+			return l.Pos, Token{ADD, tokens[ADD], string(r)}
 		case '-':
-			return l.pos, Token{SUB, tokens[SUB], string(r)}
+			return l.Pos, Token{SUB, tokens[SUB], string(r)}
 		case '>':
-			return l.pos, Token{INCP, tokens[INCP], string(r)}
+			return l.Pos, Token{INCP, tokens[INCP], string(r)}
 		case '<':
-			return l.pos, Token{DECP, tokens[DECP], string(r)}
+			return l.Pos, Token{DECP, tokens[DECP], string(r)}
 		case '.':
-			return l.pos, Token{OUT, tokens[OUT], string(r)}
+			return l.Pos, Token{OUT, tokens[OUT], string(r)}
 		case ',':
-			return l.pos, Token{IN, tokens[IN], string(r)}
+			return l.Pos, Token{IN, tokens[IN], string(r)}
 		case '[':
-			return l.pos, Token{JMPF, tokens[JMPF], string(r)}
+			return l.Pos, Token{JMPF, tokens[JMPF], string(r)}
 		case ']':
-			return l.pos, Token{JMPB, tokens[JMPB], string(r)}
+			return l.Pos, Token{JMPB, tokens[JMPB], string(r)}
 		default:
 			continue
 		}
