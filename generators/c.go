@@ -3,6 +3,7 @@ package generators
 import (
 	l "bcomp/lexer"
 	"fmt"
+	"strings"
 )
 
 // PrintC prints the tokens as C code
@@ -51,7 +52,6 @@ func PrintC(tokens []ParseToken, includeComments bool) {
 			} else {
 				fmt.Printf("%sfor (int i = 0; i < %d; i++) {\n%s	putchar(*p);\n%s}\n", indent(indentLevel), t.Extra, indent(indentLevel), indent(indentLevel))
 			}
-			fmt.Printf("%sputchar(*p);\n", indent(indentLevel))
 		case l.IN:
 			if t.Extra == 1 {
 				fmt.Printf("%s*p = getchar();\n", indent(indentLevel))
@@ -64,6 +64,20 @@ func PrintC(tokens []ParseToken, includeComments bool) {
 		case l.JMPB:
 			indentLevel--
 			fmt.Printf("%s}\n", indent(indentLevel))
+		case l.MUL:
+			output := ""
+			if t.Extra == 1 {
+				output = fmt.Sprintf("%sp[%d] += *p;\n", indent(indentLevel), t.Extra2)
+			} else if t.Extra == -1 {
+				output = fmt.Sprintf("%sp[%d] -= *p;\n", indent(indentLevel), t.Extra2)
+			} else {
+				output = fmt.Sprintf("%sp[%d] += *p * %d;\n", indent(indentLevel), t.Extra2, t.Extra)
+			}
+			fmt.Print(strings.ReplaceAll(output, "p[0]", "*p"))
+		case l.DIV:
+			output := ""
+			output = fmt.Sprintf("%sp[%d] /= %d;\n", indent(indentLevel), t.Extra2, t.Extra)
+			fmt.Print(strings.ReplaceAll(output, "p[0]", "*p"))
 		}
 	}
 	fmt.Printf("	return 0;\n")

@@ -6,10 +6,10 @@ import (
 )
 
 type ParseToken struct {
-	Pos     l.Position
-	Tok     l.Token
-	Address int
-	Extra   int
+	Pos    l.Position
+	Tok    l.Token
+	Extra  int
+	Extra2 int
 }
 
 func indent(n int) string {

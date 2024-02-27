@@ -3,6 +3,7 @@ package generators
 import (
 	l "bcomp/lexer"
 	"fmt"
+	"strings"
 )
 
 // PrintJS prints the tokens as node.js code
@@ -107,6 +108,20 @@ async function main() {
 		case l.JMPB:
 			indentLevel--
 			fmt.Printf("%s}\n", indent(indentLevel))
+		case l.MUL:
+			output := ""
+			if t.Extra == 1 {
+				output = fmt.Sprintf("%smem[p + %d] += mem[p];\n", indent(indentLevel), t.Extra2)
+			} else if t.Extra == -1 {
+				output = fmt.Sprintf("%smem[p + %d] -= mem[p];\n", indent(indentLevel), t.Extra2)
+			} else {
+				output = fmt.Sprintf("%smem[p + %d] += mem[p] * %d;\n", indent(indentLevel), t.Extra2, t.Extra)
+			}
+			fmt.Print(strings.ReplaceAll(output, "mem[p + 0]", "mem[p]"))
+		case l.DIV:
+			output := ""
+			output = fmt.Sprintf("%smem[p + %d] /= %d;\n", indent(indentLevel), t.Extra2, t.Extra)
+			fmt.Print(strings.ReplaceAll(output, "mem[p + 0]", "mem[p]"))
 		}
 	}
 	fmt.Printf("	process.stdin.unref();\n")

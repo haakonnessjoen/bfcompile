@@ -56,9 +56,13 @@ func main() {
 		}
 	}
 
+	if optOptimize && optGenerator != "bf" {
+		tokens = optimize2(tokens)
+	}
+
 	if optOptimize && initialCount > 0 {
 		if optGenerator != "bf" {
-			fmt.Fprintf(os.Stderr, "Optimized from %d to %d instructions. Reduction of %.f%%\n", initialCount, len(tokens), 100-((float64(len(tokens))/float64(initialCount))*100))
+			fmt.Fprintf(os.Stderr, "Optimized from %d to %d instructions. Token reduction of %.f%%\n", initialCount, len(tokens), 100-((float64(len(tokens))/float64(initialCount))*100))
 		} else {
 			operations := 0
 			for _, t := range tokens {
@@ -68,6 +72,8 @@ func main() {
 					operations++
 				}
 			}
+
+			// To not confuse the user, we count all the individual instructions as brainfuck will not be able to output less instructions
 			fmt.Fprintf(os.Stderr, "Optimized from %d to %d instructions. Reduction of %.f%%\n", initialCount, operations, 100-((float64(operations)/float64(initialCount))*100))
 		}
 	}

@@ -25,6 +25,10 @@ const (
 	IN   // ,
 	JMPF // [
 	JMPB // ]
+
+	// Non-BF operations
+	MUL
+	DIV
 )
 
 var tokens = []string{
@@ -38,6 +42,9 @@ var tokens = []string{
 	IN:   "IN",
 	JMPF: "JMPF",
 	JMPB: "JMPB",
+
+	MUL: "MUL",
+	DIV: "DIV",
 }
 
 func (t Token) String() string {

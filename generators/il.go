@@ -3,6 +3,7 @@ package generators
 import (
 	l "bcomp/lexer"
 	"fmt"
+	"math"
 	"os"
 )
 
@@ -16,7 +17,7 @@ func PrintIL(tokens []ParseToken, includeComments bool) {
 	fmt.Printf("	%%v =l copy 0\n")
 	for _, t := range tokens {
 		if includeComments {
-			fmt.Printf("# Line %d, Pos %d: %v\n", t.Pos.Line, t.Pos.Column, t.Tok)
+			fmt.Printf("# Line %d, Pos %d: %s (%s, %d, %d)\n", t.Pos.Line, t.Pos.Column, t.Tok.Character, t.Tok.TokenName, t.Extra, t.Extra2)
 		}
 
 		switch t.Tok.Tok {
@@ -51,60 +52,29 @@ func PrintIL(tokens []ParseToken, includeComments bool) {
 		case l.JMPB:
 			fmt.Printf("	jmp @JMP%df\n", t.Extra)
 			fmt.Printf("@JMP%dbd\n", t.Extra)
-
 		case l.MUL:
-			// EXTRA = multiplier
-			// EXTRA2 = pointer
-
 			// p[%d] += *p * %d;
-			if t.Extra > 1 || t.Extra < -1 {
-				fmt.Printf("	%%v3 =w mul %%v, %d\n", t.Extra)
+			multiplier := t.Extra
+			ptr := t.Extra2
 
-				if t.Extra2 == 0 {
-					fmt.Printf("	%%v =w add %%v, %%v3\n")
-					fmt.Printf("	storeb %%v, %%p\n")
-					fmt.Printf("    %%v =w extub %%v\n")
-				} else {
-					if t.Extra2 > 0 {
-						fmt.Printf("	%%p2 =l add %%p, %d\n", t.Extra2)
-					} else if t.Extra2 < 0 {
-						fmt.Printf("	%%p2 =l sub %%p, %d\n", -t.Extra2)
-					}
+			fmt.Printf("	%%v2 =w mul %%v, %d\n", int(math.Abs(float64(multiplier))))
+			fmt.Printf("    %%v2 =w extub %%v2\n")
 
-					fmt.Printf("	%%v2 =w loadub %%p2\n")
-					fmt.Printf("	%%v2 =w add %%v3, %%v2\n")
-					fmt.Printf("	storeb %%v2, %%p2\n")
-				}
-			} else if t.Extra == 1 || t.Extra == -1 {
-				// p[%d] += *p;
-				if t.Extra2 == 0 {
-					if t.Extra > 0 {
-						fmt.Printf("	%%v =w add %%v, %%v\n")
-					} else if t.Extra < 0 {
-						fmt.Printf("	%%v =w sub %%v, %%v\n")
-					}
-					fmt.Printf("	storeb %%v, %%p\n")
-					fmt.Printf("    %%v =w extub %%v\n")
-				} else {
-					if t.Extra2 > 0 {
-						fmt.Printf("	%%p2 =l add %%p, %d\n", t.Extra2)
-					} else if t.Extra2 < 0 {
-						fmt.Printf("	%%p2 =l sub %%p, %d\n", -t.Extra2)
-					}
-					fmt.Printf("	%%v2 =w loadub %%p2\n")
-					if t.Extra == 1 {
-						fmt.Printf("	%%v2 =w add %%v, %%v2\n")
-					} else if t.Extra == -1 {
-						fmt.Printf("	%%v2 =w sub %%v, %%v2\n")
-					}
-					fmt.Printf("	storeb %%v2, %%p2\n")
-				}
+			fmt.Printf("	%%p2 =l add %%p, %d\n", ptr)
+
+			fmt.Printf("	%%v3 =w loadub %%p2\n")
+
+			if multiplier > 0 {
+				fmt.Printf("	%%v3 =w add %%v3, %%v2\n")
 			} else {
-				fmt.Fprintf(os.Stderr, "Internal error: MUL operation with wrong multiplier: %d\n", t.Extra)
+				fmt.Printf("	%%v3 =w sub %%v3, %%v2\n")
 			}
+			fmt.Printf("	storeb %%v3, %%p2\n")
+			fmt.Printf("    %%v3 =w extub %%v3\n")
 		case l.DIV:
 			// p[%d] /= %d;
-			if t.Extra2 == 0 {
+			ptr := t.Extra2
+			if ptr == 0 {
 				fmt.Printf("	%%v =w div %%v, %d\n", t.Extra)
 				fmt.Printf("	storeb %%v, %%p\n")
 				fmt.Printf("    %%v =w extub %%v\n")
