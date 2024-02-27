@@ -57,20 +57,35 @@ func PrintIL(tokens []ParseToken, includeComments bool) {
 			multiplier := t.Extra
 			ptr := t.Extra2
 
-			fmt.Printf("	%%v2 =w mul %%v, %d\n", int(math.Abs(float64(multiplier))))
-			fmt.Printf("    %%v2 =w extub %%v2\n")
+			sourcevar := "%v2"
+			destvar := "%p2"
 
-			fmt.Printf("	%%p2 =l add %%p, %d\n", ptr)
+			if multiplier == 1 || multiplier == -1 {
+				sourcevar = "%v"
+			} else {
+				fmt.Printf("	%%v2 =w mul %%v, %d\n", int(math.Abs(float64(multiplier))))
+				fmt.Printf("    %%v2 =w extub %%v2\n")
+			}
 
-			fmt.Printf("	%%v3 =w loadub %%p2\n")
+			if ptr == 0 {
+				destvar = "%p"
+			} else {
+				fmt.Printf("	%%p2 =l add %%p, %d\n", ptr)
+			}
+
+			fmt.Printf("	%%v3 =w loadub %s\n", destvar)
 
 			if multiplier > 0 {
-				fmt.Printf("	%%v3 =w add %%v3, %%v2\n")
+				fmt.Printf("	%%v3 =w add %%v3, %s\n", sourcevar)
 			} else {
-				fmt.Printf("	%%v3 =w sub %%v3, %%v2\n")
+				fmt.Printf("	%%v3 =w sub %%v3, %s\n", sourcevar)
 			}
-			fmt.Printf("	storeb %%v3, %%p2\n")
-			fmt.Printf("    %%v3 =w extub %%v3\n")
+
+			fmt.Printf("	storeb %%v3, %s\n", destvar)
+
+			if ptr == 0 {
+				fmt.Printf("    %%v =w extub %%v3\n")
+			}
 		case l.DIV:
 			// p[%d] /= %d;
 			ptr := t.Extra2
