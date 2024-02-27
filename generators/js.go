@@ -93,13 +93,13 @@ async function main() {
 			if t.Extra == 1 {
 				fmt.Printf("%sawait output(mem[p]);\n", indent(indentLevel))
 			} else {
-				fmt.Printf("%sfor (let i = 0; i < %d; i++) await output(mem[p]);\n", indent(indentLevel), t.Extra)
+				fmt.Printf("%sfor (let i = 0; i < %d; i++) {\n%s	await output(mem[p]);\n%s}\n", indent(indentLevel), t.Extra, indent(indentLevel), indent(indentLevel))
 			}
 		case l.IN:
 			if t.Extra == 1 {
 				fmt.Printf("%smem[p] = await input();\n", indent(indentLevel))
 			} else {
-				fmt.Printf("%sfor (let i = 0; i < %d; i++) mem[p] = await input();\n", indent(indentLevel), t.Extra)
+				fmt.Printf("%sfor (let i = 0; i < %d; i++) {\n%s	mem[p] = await input();\n%s}\n", indent(indentLevel), t.Extra, indent(indentLevel), indent(indentLevel))
 			}
 		case l.JMPF:
 			fmt.Printf("%swhile (mem[p]) {\n", indent(indentLevel))
