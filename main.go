@@ -14,14 +14,17 @@ var (
 	optOptimize   bool
 	optComments   bool
 	optMemorySize int
+	optOutput     string
 )
 
 func main() {
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	// parse command line arguments
 	flag.StringVar(&optGenerator, "g", "qbe", "Generator to use, qbe, c, js or bf")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
 	flag.IntVar(&optMemorySize, "m", 30000, "Memory size available to brainfuck in the generated code")
+	flag.StringVar(&optOutput, "out", "", "Set a filename to output to instead of outputting to STDOUT.")
 
 	// Customize usage message
 	flag.Usage = func() {
@@ -65,7 +68,7 @@ func main() {
 
 	if optOptimize && initialCount > 0 {
 		if optGenerator != "bf" {
-			fmt.Fprintf(os.Stderr, "Optimized from %d to %d instructions. Token reduction of %.f%%\n", initialCount, len(tokens), 100-((float64(len(tokens))/float64(initialCount))*100))
+			//fmt.Fprintf(os.Stderr, "Optimized from %d to %d instructions. Token reduction of %.f%%\n", initialCount, len(tokens), 100-((float64(len(tokens))/float64(initialCount))*100))
 		} else {
 			operations := 0
 			for _, t := range tokens {
@@ -77,18 +80,18 @@ func main() {
 			}
 
 			// To not confuse the user, we count all the individual instructions as brainfuck will not be able to output less instructions
-			fmt.Fprintf(os.Stderr, "Optimized from %d to %d instructions. Reduction of %.f%%\n", initialCount, operations, 100-((float64(operations)/float64(initialCount))*100))
+			//fmt.Fprintf(os.Stderr, "Optimized from %d to %d instructions. Reduction of %.f%%\n", initialCount, operations, 100-((float64(operations)/float64(initialCount))*100))
 		}
 	}
 
 	switch optGenerator {
 	case "qbe":
-		g.PrintIL(tokens, optComments, optMemorySize)
+		g.PrintIL(optOutput, tokens, optComments, optMemorySize)
 	case "c":
-		g.PrintC(tokens, optComments, optMemorySize)
+		g.PrintC(optOutput, tokens, optComments, optMemorySize)
 	case "js":
-		g.PrintJS(tokens, optComments, optMemorySize)
+		g.PrintJS(optOutput, tokens, optComments, optMemorySize)
 	case "bf":
-		g.PrintBF(tokens, optComments)
+		g.PrintBF(optOutput, tokens, optComments)
 	}
 }

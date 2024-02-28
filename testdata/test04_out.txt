@@ -1,0 +1,53 @@
+const process = require("process");
+async function output(v) {
+	let wrote = process.stdout.write(String.fromCharCode(v));
+	if (!wrote) {
+		await new Promise((resolve) => {
+			process.stdout.once("drain", resolve);
+		});
+		output(v);
+	}
+}
+
+async function main() {
+	const mem = new Uint8Array(30000);
+	let p = 0;	mem[p] += 10;
+	mem[p+1] += mem[p] * 7;
+	mem[p+2] += mem[p] * 10;
+	mem[p+3] += mem[p] * 3;
+	mem[p+4] += mem[p];
+	mem[p] = 0;
+	p++;
+	mem[p] += 2;
+	await output(mem[p]);
+	p++;
+	mem[p]++;
+	await output(mem[p]);
+	mem[p] += 7;
+	for (let i = 0; i < 2; i++) {
+		await output(mem[p]);
+	}
+	mem[p] += 3;
+	await output(mem[p]);
+	p++;
+	mem[p] += 2;
+	await output(mem[p]);
+	p -= 2;
+	mem[p] += 15;
+	await output(mem[p]);
+	p++;
+	await output(mem[p]);
+	mem[p] += 3;
+	await output(mem[p]);
+	mem[p] -= 6;
+	await output(mem[p]);
+	mem[p] -= 8;
+	await output(mem[p]);
+	p++;
+	mem[p]++;
+	await output(mem[p]);
+	p++;
+	await output(mem[p]);
+	process.stdin.unref();
+}
+main()

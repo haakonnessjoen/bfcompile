@@ -42,6 +42,14 @@ func isSimpleLoop(tokens []g.ParseToken) (bool, int) {
 	return false, 0
 }
 
+const debug = false
+
+func D(token g.ParseToken, format string, a ...interface{}) {
+	if debug {
+		fmt.Fprintf(os.Stderr, fmt.Sprintf("%d:%d %s (%d, %d) => %s\n", token.Pos.Line, token.Pos.Column, token.Tok.TokenName, token.Extra, token.Extra2, format), a...)
+	}
+}
+
 // This will optimize the code and add multiplication
 // so this optimizer will generate new tokens not supported by the Brainfuck generator
 func Optimize2(tokens []g.ParseToken) []g.ParseToken {
@@ -54,6 +62,7 @@ mainloop:
 
 		if token == l.JMPF {
 			if tokens[i+1].Tok.Tok == l.JMPB {
+				D(t, "Aborting, putting JMPF back")
 				// Special case, a loop with no operation, cannot optimize as we cannot divide by 0.
 				newTokens = append(newTokens, t)
 				continue
@@ -65,10 +74,11 @@ mainloop:
 
 				// If the operation is [-], just optimize it to *p -= *p
 				if insts == 1 && tokens[i+1].Tok.Tok == l.SUB {
+					D(t, "Optimizing away small loop, pushing MUL with -1, 0 to just empty the pointer")
 					newTokens = append(newTokens, g.ParseToken{
 						Pos:    t.Pos,
 						Tok:    l.Token{Tok: l.MUL, TokenName: "MUL", Character: ""},
-						Extra:  -tokens[i+1].Extra,
+						Extra:  -1,
 						Extra2: 0,
 					})
 					i += 2
@@ -101,6 +111,7 @@ mainloop:
 				pointer = 0
 				// If the decrementer is not 1, we need to divide p[0] with the decrementer to get the correct multiplier
 				if decrementer != 1 && decrementer != 0 {
+					D(t, "Loop with decrementer %d, adding DIV with (%d, 0)", decrementer, decrementer)
 					newTokens = append(newTokens, g.ParseToken{
 						Pos:    t.Pos,
 						Tok:    l.Token{Tok: l.DIV, TokenName: "DIV", Character: ""},
@@ -108,6 +119,7 @@ mainloop:
 						Extra2: 0,
 					})
 				}
+				D(t, "Loop had %d instructions, with %d decrements of p[0] per round", insts, decrementer)
 
 				// Start the actual optimization, lets add the multiplication operations
 				for j := i + 1; j < i+1+insts; j++ {
@@ -120,9 +132,11 @@ mainloop:
 					} else if pointer == 0 && ttoken == l.SUB {
 						// Ignore, we already handled this
 					} else if ttoken == l.INCP {
+						D(tt, "INCP with %d, New P is %d", tt.Extra, pointer+tt.Extra)
 						// Keep track of the pointer, this is previously optimized so .Extra holds the number of increments
 						pointer += tt.Extra
 					} else if ttoken == l.DECP {
+						D(tt, "DECP with %d, New P is %d", tt.Extra, pointer-tt.Extra)
 						// Keep track of the pointer
 						pointer -= tt.Extra
 					} else {
@@ -137,6 +151,7 @@ mainloop:
 							count = -count
 						}
 
+						D(tt, "Adding MUL with %d, %d", count, pointer)
 						// Add the multiplication operation
 						// This would be translated to for example: p[pointer] += p[0] * count
 						newTokens = append(newTokens, g.ParseToken{
@@ -148,6 +163,7 @@ mainloop:
 					}
 				}
 
+				D(t, "Loop optimized, skipping %d instructions, adding a MUL (-1,0) to zero p[0]", insts)
 				// Set p[0] to 0, as it has just exited the "loop" and would be zero
 				newTokens = append(newTokens, g.ParseToken{
 					Pos:    t.Pos,
