@@ -8,8 +8,8 @@ import (
 )
 
 // PrintIL prints the tokens as IL code
-func PrintIL(tokens []ParseToken, includeComments bool) {
-	fmt.Println("data $MEM = { z 30000 }")
+func PrintIL(tokens []ParseToken, includeComments bool, memorySize int) {
+	fmt.Printf("data $MEM = { z %d }\n", memorySize)
 
 	fmt.Println("export function w $main() {")
 	fmt.Println("@start")

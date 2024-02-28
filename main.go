@@ -6,12 +6,14 @@ import (
 	"os"
 
 	g "bcomp/generators"
+	p "bcomp/parser"
 )
 
 var (
-	optGenerator string
-	optOptimize  bool
-	optComments  bool
+	optGenerator  string
+	optOptimize   bool
+	optComments   bool
+	optMemorySize int
 )
 
 func main() {
@@ -19,6 +21,7 @@ func main() {
 	flag.StringVar(&optGenerator, "g", "qbe", "Generator to use, qbe, c, js or bf")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
+	flag.IntVar(&optMemorySize, "m", 30000, "Memory size available to brainfuck in the generated code")
 
 	// Customize usage message
 	flag.Usage = func() {
@@ -41,12 +44,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	tokens := parseFile(flag.Args()[0])
+	tokens := p.ParseFile(flag.Args()[0])
 	initialCount := len(tokens)
 
 	if optOptimize {
 		for {
-			newtokens := optimize(tokens)
+			newtokens := p.Optimize(tokens)
 			if len(newtokens) == len(tokens) {
 				// No more optimization to be done
 				break
@@ -57,7 +60,7 @@ func main() {
 	}
 
 	if optOptimize && optGenerator != "bf" {
-		tokens = optimize2(tokens)
+		tokens = p.Optimize2(tokens)
 	}
 
 	if optOptimize && initialCount > 0 {
@@ -80,11 +83,11 @@ func main() {
 
 	switch optGenerator {
 	case "qbe":
-		g.PrintIL(tokens, optComments)
+		g.PrintIL(tokens, optComments, optMemorySize)
 	case "c":
-		g.PrintC(tokens, optComments)
+		g.PrintC(tokens, optComments, optMemorySize)
 	case "js":
-		g.PrintJS(tokens, optComments)
+		g.PrintJS(tokens, optComments, optMemorySize)
 	case "bf":
 		g.PrintBF(tokens, optComments)
 	}

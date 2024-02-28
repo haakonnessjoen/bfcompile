@@ -14,7 +14,7 @@ EXECS := $(patsubst $(SRC_DIR)/%.bf,%,$(SRCS))
 
 .DEFAULT_GOAL := all
 
-GOSOURCES := $(wildcard *.go) $(wildcard generators/*.go) $(wildcard lexer/*.go)
+GOSOURCES := $(wildcard *.go) $(wildcard generators/*.go) $(wildcard lexer/*.go) $(wildcard parser/*.go)
 bfcompile: $(GOSOURCES)
 	go build -o bfcompile $(wildcard *.go)
 

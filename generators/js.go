@@ -7,7 +7,7 @@ import (
 )
 
 // PrintJS prints the tokens as node.js code
-func PrintJS(tokens []ParseToken, includeComments bool) {
+func PrintJS(tokens []ParseToken, includeComments bool, memorySize int) {
 	hasInput := false
 	for _, t := range tokens {
 		if t.Tok.Tok == l.IN {
@@ -45,7 +45,7 @@ process.stdin.on("data", (data) => {
 });`)
 	}
 
-	fmt.Println(`async function output(v) {
+	fmt.Printf(`async function output(v) {
 	let wrote = process.stdout.write(String.fromCharCode(v));
 	if (!wrote) {
 		await new Promise((resolve) => {
@@ -56,8 +56,8 @@ process.stdin.on("data", (data) => {
 }
 
 async function main() {
-	const mem = new Uint8Array(30000);
-	let p = 0;`)
+	const mem = new Uint8Array(%d);
+	let p = 0;`, memorySize)
 
 	indentLevel := 1
 	for _, t := range tokens {
@@ -109,19 +109,27 @@ async function main() {
 			indentLevel--
 			fmt.Printf("%s}\n", indent(indentLevel))
 		case l.MUL:
+			prefix := ""
+			if t.Extra2 >= 0 {
+				prefix = "+"
+			}
 			output := ""
 			if t.Extra == 1 {
-				output = fmt.Sprintf("%smem[p + %d] += mem[p];\n", indent(indentLevel), t.Extra2)
+				output = fmt.Sprintf("%smem[p%s%d] += mem[p];\n", indent(indentLevel), prefix, t.Extra2)
 			} else if t.Extra == -1 {
-				output = fmt.Sprintf("%smem[p + %d] -= mem[p];\n", indent(indentLevel), t.Extra2)
+				output = fmt.Sprintf("%smem[p%s%d] -= mem[p];\n", indent(indentLevel), prefix, t.Extra2)
 			} else {
-				output = fmt.Sprintf("%smem[p + %d] += mem[p] * %d;\n", indent(indentLevel), t.Extra2, t.Extra)
+				output = fmt.Sprintf("%smem[p%s%d] += mem[p] * %d;\n", indent(indentLevel), prefix, t.Extra2, t.Extra)
 			}
-			fmt.Print(strings.ReplaceAll(output, "mem[p + 0]", "mem[p]"))
+			fmt.Print(strings.ReplaceAll(output, "mem[p+0]", "mem[p]"))
 		case l.DIV:
+			prefix := ""
+			if t.Extra2 >= 0 {
+				prefix = "+"
+			}
 			output := ""
-			output = fmt.Sprintf("%smem[p + %d] /= %d;\n", indent(indentLevel), t.Extra2, t.Extra)
-			fmt.Print(strings.ReplaceAll(output, "mem[p + 0]", "mem[p]"))
+			output = fmt.Sprintf("%smem[p%s%d] /= %d;\n", indent(indentLevel), prefix, t.Extra2, t.Extra)
+			fmt.Print(strings.ReplaceAll(output, "mem[p+0]", "mem[p]"))
 		}
 	}
 	fmt.Printf("	process.stdin.unref();\n")

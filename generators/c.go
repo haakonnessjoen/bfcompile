@@ -7,11 +7,11 @@ import (
 )
 
 // PrintC prints the tokens as C code
-func PrintC(tokens []ParseToken, includeComments bool) {
+func PrintC(tokens []ParseToken, includeComments bool, memorySize int) {
 	fmt.Println("#include <stdio.h>")
 	fmt.Println("#include <stdint.h>")
 
-	fmt.Printf("uint8_t mem[30000];\n")
+	fmt.Printf("uint8_t mem[%d];\n", memorySize)
 	fmt.Println("int main() {")
 	fmt.Println("	uint8_t *p = mem;")
 
