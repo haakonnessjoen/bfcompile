@@ -2,8 +2,7 @@ package generators
 
 import (
 	l "bcomp/lexer"
-	"fmt"
-	"os"
+	"log"
 )
 
 // PrintBF prints the tokens as Brainfuck code
@@ -43,21 +42,8 @@ func PrintBF(outputFile string, tokens []ParseToken, includeComments bool) {
 			f.Print("[")
 		case l.JMPB:
 			f.Print("]")
-		case l.MUL:
-			if t.Extra == -1 && t.Extra2 == 0 {
-				f.Printf("[-]")
-				continue
-			}
-
-			fmt.Fprintf(os.Stderr, "WARNING: optimized file cannot be correctly converted to BF")
-			if includeComments {
-				f.Printf("MUL(%d:%d)", t.Extra, t.Extra2)
-			}
-		case l.DIV:
-			fmt.Fprintf(os.Stderr, "WARNING: optimized file cannot be correctly converted to BF")
-			if includeComments {
-				f.Printf("DIC(%d:%d)", t.Extra, t.Extra2)
-			}
+		default:
+			log.Fatalf("Unknown token at %d:%d\n", t.Pos.Line, t.Pos.Column)
 		}
 	}
 }

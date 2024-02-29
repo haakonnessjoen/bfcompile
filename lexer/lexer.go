@@ -29,6 +29,8 @@ const (
 	// Non-BF operations
 	MUL
 	DIV
+	BZ
+	LBL
 )
 
 var tokens = []string{
@@ -45,6 +47,8 @@ var tokens = []string{
 
 	MUL: "MUL",
 	DIV: "DIV",
+	BZ:  "BZ",
+	LBL: "LBL",
 }
 
 func (t Token) String() string {

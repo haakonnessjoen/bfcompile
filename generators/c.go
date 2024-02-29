@@ -84,6 +84,12 @@ func PrintC(outputFile string, tokens []ParseToken, includeComments bool, memory
 			output := ""
 			output = fmt.Sprintf("%sp[%d] /= %d;\n", indent(indentLevel), t.Extra2, t.Extra)
 			f.Print(strings.ReplaceAll(output, "p[0]", "*p"))
+		case l.BZ: // NB: We are ignoring labels right now, if we are going to need them for something else we need to switch this out with a goto
+			f.Printf("%sif (*p) {\n", indent(indentLevel))
+			indentLevel++
+		case l.LBL:
+			indentLevel--
+			f.Printf("%s}\n", indent(indentLevel))
 		}
 	}
 	f.Println("	return 0;")

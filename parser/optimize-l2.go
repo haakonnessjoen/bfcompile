@@ -121,6 +121,13 @@ mainloop:
 				}
 				D(t, "Loop had %d instructions, with %d decrements of p[0] per round", insts, decrementer)
 
+				D(t, "Add a BZ to check if the pointer is != 0, or else wi might try to assign 0 to invalid memory locations")
+				newTokens = append(newTokens, g.ParseToken{
+					Pos:   t.Pos,
+					Tok:   l.Token{Tok: l.BZ, TokenName: "BZ", Character: ""},
+					Extra: t.Extra, // We re-use the jump label
+				})
+
 				// Start the actual optimization, lets add the multiplication operations
 				for j := i + 1; j < i+1+insts; j++ {
 					tt := tokens[j]
@@ -169,6 +176,14 @@ mainloop:
 					Pos:    t.Pos,
 					Tok:    l.Token{Tok: l.MUL, TokenName: "MUL", Character: ""},
 					Extra:  -1,
+					Extra2: 0,
+				})
+
+				// Add back a label to handle the case where the value was zero before the loop
+				newTokens = append(newTokens, g.ParseToken{
+					Pos:    t.Pos,
+					Tok:    l.Token{Tok: l.LBL, TokenName: "LBL", Character: ""},
+					Extra:  t.Extra,
 					Extra2: 0,
 				})
 

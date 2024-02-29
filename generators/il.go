@@ -107,7 +107,11 @@ func PrintIL(outputFile string, tokens []ParseToken, includeComments bool, memor
 			} else {
 				fmt.Fprint(os.Stderr, "Internal error: DIV operation with pointer other than 0 is not implemented\n")
 			}
-
+		case l.BZ:
+			f.Printf("	jnz %%v, @JMP%df, @JMP%d\n", t.Extra, t.Extra)
+			f.Printf("@JMP%df\n", t.Extra)
+		case l.LBL:
+			f.Printf("@JMP%d\n", t.Extra)
 		}
 	}
 	f.Println("	ret 0")

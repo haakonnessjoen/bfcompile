@@ -3,6 +3,7 @@ package generators
 import (
 	l "bcomp/lexer"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -136,6 +137,14 @@ async function main() {
 			output := ""
 			output = fmt.Sprintf("%smem[p%s%d] /= %d;\n", indent(indentLevel), prefix, t.Extra2, t.Extra)
 			f.Print(strings.ReplaceAll(output, "mem[p+0]", "mem[p]"))
+		case l.BZ:
+			f.Printf("%sif (mem[p]) {\n", indent(indentLevel))
+			indentLevel++
+		case l.LBL:
+			indentLevel--
+			f.Printf("%s}\n", indent(indentLevel))
+		default:
+			log.Fatalf("Unknown token at %d:%d\n", t.Pos.Line, t.Pos.Column)
 		}
 	}
 	f.Println("	process.stdin.unref();")
