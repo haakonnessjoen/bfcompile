@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	g "bcomp/generators"
 	p "bcomp/parser"
 
 	"github.com/google/uuid"
@@ -90,20 +91,11 @@ func TestBFOptimizetoBF(t *testing.T) {
 }
 
 func TestJSVanilla(t *testing.T) {
-	oldArgs := os.Args
+	tokens := p.ParseFile("testdata/test03.bf")
+	f := g.NewGeneratorOutputString()
+	g.PrintJS(f, tokens, false, 30000)
 
-	defer func() {
-		os.Args = oldArgs
-		if r := recover(); r != nil {
-			t.Errorf("panic: %v", r)
-		}
-	}()
-
-	filename := tempFile()
-	defer filename.Remove()
-	os.Args = []string{"cmd", "-g", "js", "-out", string(filename), "testdata/test03.bf"}
-	main()
-	got := filename.ReadFile()
+	got := f.GetOutput()
 	want := wantOutput("test03")
 
 	if got != want {
@@ -111,39 +103,56 @@ func TestJSVanilla(t *testing.T) {
 	}
 }
 
-func TestJSOptimized(t *testing.T) {
-	oldArgs := os.Args
+func TestJSL1Optimized(t *testing.T) {
+	tokens := p.ParseFile("testdata/test04.bf")
+	tokens = p.Optimize(tokens)
+	f := g.NewGeneratorOutputString()
+	g.PrintJS(f, tokens, false, 30000)
 
-	defer func() {
-		os.Args = oldArgs
-		if r := recover(); r != nil {
-			t.Errorf("panic: %v", r)
-		}
-	}()
-
-	filename := tempFile()
-	defer filename.Remove()
-	os.Args = []string{"cmd", "-o", "-g", "js", "-out", string(filename), "testdata/test04.bf"}
-	main()
-	got := filename.ReadFile()
+	got := f.GetOutput()
 	want := wantOutput("test04")
-
-	os.WriteFile("testdata/test04_out.txt", []byte(got), 0666)
 
 	if got != want {
 		t.Errorf("got %q, wanted %q", got, want)
 	}
 }
 
-func TestJSINTOptimized(t *testing.T) {
+func TestJSL2Optimized(t *testing.T) {
 	tokens := p.ParseFile("testdata/test05.bf")
 	tokens = p.Optimize(tokens)
 	tokens = p.Optimize2(tokens)
+	f := g.NewGeneratorOutputString()
+	g.PrintJS(f, tokens, false, 30000)
 
-	got, _ := json.Marshal(tokens)
+	got := f.GetOutput()
 	want := wantOutput("test05")
 
-	if string(got) != want {
+	if got != want {
+		t.Errorf("got %q, wanted %q", got, want)
+	}
+}
+
+// This test checks if the optimized loop outputs the correct code
+// The code will go out of bounds if the first inner loop is not skipped
+// correctly.
+func TestBZCheckOfOptimizedLoops(t *testing.T) {
+	tokens := p.ParseFile("testdata/test06.bf")
+	tokens = p.Optimize(tokens)
+	tokens = p.Optimize2(tokens)
+
+	tokenstrings := make([]string, 0, len(tokens))
+	for _, t := range tokens {
+		tokenstrings = append(tokenstrings, t.String())
+	}
+	gotb, err := json.MarshalIndent(tokenstrings, "", "\t")
+	if err != nil {
+		t.Errorf("json.Marshal: %v", err)
+	}
+	got := string(gotb)
+
+	want := wantOutput("test06")
+
+	if got != want {
 		t.Errorf("got %q, wanted %q", got, want)
 	}
 }

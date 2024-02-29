@@ -8,8 +8,7 @@ import (
 )
 
 // PrintJS prints the tokens as node.js code
-func PrintJS(outputFile string, tokens []ParseToken, includeComments bool, memorySize int) {
-	f := NewGeneratorOutput(outputFile)
+func PrintJS(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memorySize int) {
 	hasInput := false
 	for _, t := range tokens {
 		if t.Tok.Tok == l.IN {

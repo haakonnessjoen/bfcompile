@@ -84,14 +84,17 @@ func main() {
 		}
 	}
 
+	output := g.NewGeneratorOutputFile(optOutput)
+	defer output.Close()
+
 	switch optGenerator {
 	case "qbe":
-		g.PrintIL(optOutput, tokens, optComments, optMemorySize)
+		g.PrintIL(output, tokens, optComments, optMemorySize)
 	case "c":
-		g.PrintC(optOutput, tokens, optComments, optMemorySize)
+		g.PrintC(output, tokens, optComments, optMemorySize)
 	case "js":
-		g.PrintJS(optOutput, tokens, optComments, optMemorySize)
+		g.PrintJS(output, tokens, optComments, optMemorySize)
 	case "bf":
-		g.PrintBF(optOutput, tokens, optComments)
+		g.PrintBF(output, tokens, optComments)
 	}
 }

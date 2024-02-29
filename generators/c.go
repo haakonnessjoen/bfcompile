@@ -7,8 +7,7 @@ import (
 )
 
 // PrintC prints the tokens as C code
-func PrintC(outputFile string, tokens []ParseToken, includeComments bool, memorySize int) {
-	f := NewGeneratorOutput(outputFile)
+func PrintC(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memorySize int) {
 	f.Println("#include <stdio.h>")
 	f.Println("#include <stdint.h>")
 

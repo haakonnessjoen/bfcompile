@@ -18,7 +18,9 @@ If you enable optimization, it optimizes the token tree (or array really) before
 
 - Second level optimalization; convert simple loops that only do maths, to multiplication instructions. For example; `++[>+++>++<<-]` would optimize to the following C code: `p[0] = 2; p[1] += *p * 3; p[2] += *p * 2;`. It also handles when the iterator is more than 1; for example: `++[>>+++>++<<--]` would generate `p[0] = 2; p[0] =/ 2; p[2] += *p * 3; p[3] += *p * 2;`, so that the result would be half the last example. This optimization cannot be used with Brainfuck output of course.
 
-Fun fact: It can also output Brainfuck, so you can use it to optimize your brainfuck. For example output from this ["C" to bf compiler](https://github.com/elikaski/BF-it) can often be optimized quite a bit, as it does a lot of operations that would cancel eachother out.
+- Added an `if` before the multiplication operations, in case the operation should not be done at all.
+
+Fun fact: It can also output Brainfuck, so you can use it to optimize your brainfuck (only level 1). For example output from this ["C" to bf compiler](https://github.com/elikaski/BF-it) can often be optimized quite a bit, as it does a lot of operations that would cancel eachother out.
 
 ## Prerequisites
 

@@ -1,1 +1,58 @@
-[{"Pos":{"Line":1,"Column":1},"Tok":{"Tok":1,"TokenName":"ADD","Character":"+"},"Extra":1,"Extra2":0},{"Pos":{"Line":1,"Column":4},"Tok":{"Tok":1,"TokenName":"ADD","Character":"+"},"Extra":9,"Extra2":0},{"Pos":{"Line":3,"Column":7},"Tok":{"Tok":9,"TokenName":"MUL","Character":""},"Extra":7,"Extra2":1},{"Pos":{"Line":4,"Column":7},"Tok":{"Tok":9,"TokenName":"MUL","Character":""},"Extra":10,"Extra2":2},{"Pos":{"Line":5,"Column":7},"Tok":{"Tok":9,"TokenName":"MUL","Character":""},"Extra":3,"Extra2":3},{"Pos":{"Line":6,"Column":7},"Tok":{"Tok":9,"TokenName":"MUL","Character":""},"Extra":1,"Extra2":4},{"Pos":{"Line":2,"Column":1},"Tok":{"Tok":9,"TokenName":"MUL","Character":""},"Extra":-1,"Extra2":0},{"Pos":{"Line":10,"Column":1},"Tok":{"Tok":3,"TokenName":"INCP","Character":"\u003e"},"Extra":1,"Extra2":0},{"Pos":{"Line":10,"Column":3},"Tok":{"Tok":1,"TokenName":"ADD","Character":"+"},"Extra":2,"Extra2":0},{"Pos":{"Line":10,"Column":6},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":1,"Extra2":0},{"Pos":{"Line":11,"Column":1},"Tok":{"Tok":3,"TokenName":"INCP","Character":"\u003e"},"Extra":1,"Extra2":0},{"Pos":{"Line":11,"Column":3},"Tok":{"Tok":1,"TokenName":"ADD","Character":"+"},"Extra":1,"Extra2":0},{"Pos":{"Line":11,"Column":5},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":1,"Extra2":0},{"Pos":{"Line":12,"Column":1},"Tok":{"Tok":1,"TokenName":"ADD","Character":"+"},"Extra":7,"Extra2":0},{"Pos":{"Line":12,"Column":10},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":2,"Extra2":0},{"Pos":{"Line":14,"Column":1},"Tok":{"Tok":1,"TokenName":"ADD","Character":"+"},"Extra":3,"Extra2":0},{"Pos":{"Line":14,"Column":5},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":1,"Extra2":0},{"Pos":{"Line":15,"Column":1},"Tok":{"Tok":3,"TokenName":"INCP","Character":"\u003e"},"Extra":1,"Extra2":0},{"Pos":{"Line":15,"Column":3},"Tok":{"Tok":1,"TokenName":"ADD","Character":"+"},"Extra":2,"Extra2":0},{"Pos":{"Line":15,"Column":6},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":1,"Extra2":0},{"Pos":{"Line":16,"Column":1},"Tok":{"Tok":4,"TokenName":"DECP","Character":"\u003c"},"Extra":2,"Extra2":0},{"Pos":{"Line":16,"Column":4},"Tok":{"Tok":1,"TokenName":"ADD","Character":"+"},"Extra":15,"Extra2":0},{"Pos":{"Line":16,"Column":22},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":1,"Extra2":0},{"Pos":{"Line":17,"Column":1},"Tok":{"Tok":3,"TokenName":"INCP","Character":"\u003e"},"Extra":1,"Extra2":0},{"Pos":{"Line":17,"Column":3},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":1,"Extra2":0},{"Pos":{"Line":18,"Column":1},"Tok":{"Tok":1,"TokenName":"ADD","Character":"+"},"Extra":3,"Extra2":0},{"Pos":{"Line":18,"Column":5},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":1,"Extra2":0},{"Pos":{"Line":19,"Column":1},"Tok":{"Tok":2,"TokenName":"SUB","Character":"-"},"Extra":6,"Extra2":0},{"Pos":{"Line":19,"Column":9},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":1,"Extra2":0},{"Pos":{"Line":20,"Column":1},"Tok":{"Tok":2,"TokenName":"SUB","Character":"-"},"Extra":8,"Extra2":0},{"Pos":{"Line":20,"Column":11},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":1,"Extra2":0},{"Pos":{"Line":21,"Column":1},"Tok":{"Tok":3,"TokenName":"INCP","Character":"\u003e"},"Extra":1,"Extra2":0},{"Pos":{"Line":21,"Column":3},"Tok":{"Tok":1,"TokenName":"ADD","Character":"+"},"Extra":1,"Extra2":0},{"Pos":{"Line":21,"Column":5},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":1,"Extra2":0},{"Pos":{"Line":22,"Column":1},"Tok":{"Tok":3,"TokenName":"INCP","Character":"\u003e"},"Extra":1,"Extra2":0},{"Pos":{"Line":22,"Column":3},"Tok":{"Tok":5,"TokenName":"OUT","Character":"."},"Extra":1,"Extra2":0},{"Pos":{"Line":23,"Column":5},"Tok":{"Tok":1,"TokenName":"ADD","Character":"+"},"Extra":2,"Extra2":0},{"Pos":{"Line":23,"Column":9},"Tok":{"Tok":2,"TokenName":"SUB","Character":"-"},"Extra":2,"Extra2":0}]
+const process = require("process");
+async function output(v) {
+	let wrote = process.stdout.write(String.fromCharCode(v));
+	if (!wrote) {
+		await new Promise((resolve) => {
+			process.stdout.once("drain", resolve);
+		});
+		output(v);
+	}
+}
+
+async function main() {
+	const mem = new Uint8Array(30000);
+	let p = 0;	mem[p]++;
+	mem[p] += 9;
+	if (mem[p]) {
+		mem[p+1] += mem[p] * 7;
+		mem[p+2] += mem[p] * 10;
+		mem[p+3] += mem[p] * 3;
+		mem[p+4] += mem[p];
+		mem[p] = 0;
+	}
+	p++;
+	mem[p] += 2;
+	await output(mem[p]);
+	p++;
+	mem[p]++;
+	await output(mem[p]);
+	mem[p] += 7;
+	for (let i = 0; i < 2; i++) {
+		await output(mem[p]);
+	}
+	mem[p] += 3;
+	await output(mem[p]);
+	p++;
+	mem[p] += 2;
+	await output(mem[p]);
+	p -= 2;
+	mem[p] += 15;
+	await output(mem[p]);
+	p++;
+	await output(mem[p]);
+	mem[p] += 3;
+	await output(mem[p]);
+	mem[p] -= 6;
+	await output(mem[p]);
+	mem[p] -= 8;
+	await output(mem[p]);
+	p++;
+	mem[p]++;
+	await output(mem[p]);
+	p++;
+	await output(mem[p]);
+	mem[p] += 2;
+	mem[p] -= 2;
+	process.stdin.unref();
+}
+main()

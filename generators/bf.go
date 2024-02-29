@@ -6,8 +6,7 @@ import (
 )
 
 // PrintBF prints the tokens as Brainfuck code
-func PrintBF(outputFile string, tokens []ParseToken, includeComments bool) {
-	f := NewGeneratorOutput(outputFile)
+func PrintBF(f *GeneratorOutput, tokens []ParseToken, includeComments bool) {
 	for _, t := range tokens {
 		if includeComments {
 			f.Printf("\n%d:%d: %v ", t.Pos.Line, t.Pos.Column, t.Tok.TokenName)

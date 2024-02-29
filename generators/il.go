@@ -8,9 +8,7 @@ import (
 )
 
 // PrintIL prints the tokens as IL code
-func PrintIL(outputFile string, tokens []ParseToken, includeComments bool, memorySize int) {
-	f := NewGeneratorOutput(outputFile)
-
+func PrintIL(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memorySize int) {
 	f.Printf("data $MEM = { z %d }\n", memorySize)
 
 	f.Println("export function w $main() {")
