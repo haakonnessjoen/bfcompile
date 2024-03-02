@@ -73,6 +73,44 @@ func findLoopEnd(tokens []g.ParseToken) int {
 	return -1
 }
 
+func setValueAfterLoop(t g.ParseToken, tokens []g.ParseToken) (newToken *g.ParseToken, lastOpWasLoop bool, insts int) {
+	value := 0
+	insts = 0
+	lastOpWasLoop = true
+
+	if Peek(&tokens, 1).Tok.Tok == l.ADD {
+		value = Peek(&tokens, 1).Extra
+		D(t, "SLO: Pushing a MOV with %d, 0 to set final value of mem[p]", value)
+		insts++
+	} else if Peek(&tokens, 1).Tok.Tok == l.SUB {
+		value = (0 - Peek(&tokens, 1).Extra) % 256
+		D(t, "SLO: Pushing a MOV with %d, 0 to set final value of mem[p]", value)
+		insts++
+	} else {
+		D(t, "SLO: No ADD/SUB found, pushing a MUL with -1, 0 to just empty the current mem[p]")
+	}
+
+	if value > 0 {
+		newToken = &g.ParseToken{
+			Pos:    tokens[1].Pos,
+			Tok:    l.Token{Tok: l.MOV, TokenName: "MOV", Character: ""},
+			Extra:  value,
+			Extra2: 0,
+		}
+		lastOpWasLoop = false
+	} else {
+		newToken = &g.ParseToken{
+			Pos:    tokens[0].Pos,
+			Tok:    l.Token{Tok: l.MUL, TokenName: "MUL", Character: ""},
+			Extra:  -1,
+			Extra2: 0,
+		}
+		lastOpWasLoop = false
+	}
+
+	return
+}
+
 // This will optimize the code and add multiplication
 // so this optimizer will generate new tokens not supported by the Brainfuck generator
 func Optimize2(tokens []g.ParseToken, generator string) []g.ParseToken {
@@ -145,34 +183,11 @@ mainloop:
 						newTokens = newTokens[:len(newTokens)-1]
 					}
 
-					value := 0
-					if Peek(&tokens, i+3).Tok.Tok == l.ADD {
-						value = Peek(&tokens, i+3).Extra
-						D(t, "SLO: Pushing a MOV with %d, 0 to set final value of mem[p]", value)
-						insts++
-					} else if Peek(&tokens, i+3).Tok.Tok == l.SUB {
-						value = (0 - Peek(&tokens, i+3).Extra) % 256
-						D(t, "SLO: Pushing a MOV with %d, 0 to set final value of mem[p]", value)
-						insts++
-					} else {
-						D(t, "SLO: No ADD/SUB found, pushing a MUL with -1, 0 to just empty the current mem[p]")
-					}
+					newTok, isStilLoop, instsadd := setValueAfterLoop(t, tokens[i+2:])
+					newTokens = append(newTokens, *newTok)
+					insts += instsadd
 
-					if value > 0 {
-						newTokens = append(newTokens, g.ParseToken{
-							Pos:    tokens[i+3].Pos,
-							Tok:    l.Token{Tok: l.MOV, TokenName: "MOV", Character: ""},
-							Extra:  value,
-							Extra2: 0,
-						})
-						lastOpWasLoop = false
-					} else {
-						newTokens = append(newTokens, g.ParseToken{
-							Pos:    tokens[i+2].Pos,
-							Tok:    l.Token{Tok: l.MUL, TokenName: "MUL", Character: ""},
-							Extra:  -1,
-							Extra2: 0,
-						})
+					if !isStilLoop {
 						lastOpWasLoop = false
 					}
 
@@ -276,17 +291,10 @@ mainloop:
 					}
 				}
 
-				value := 0
-				if Peek(&tokens, i+insts+2).Tok.Tok == l.ADD {
-					value = Peek(&tokens, i+insts+2).Extra
-					D(t, "SLO: Pushing a MOV with %d, 0 to set final value of mem[p]", value)
-					insts++
-				} else if Peek(&tokens, i+insts+2).Tok.Tok == l.SUB {
-					value = (0 - Peek(&tokens, i+insts+2).Extra) % 256
-					D(t, "SLO: Pushing a MOV with %d, 0 to set final value of mem[p]", value)
-					insts++
-				} else {
-					D(t, "SLO: No ADD/SUB found, pushing a MUL with -1, 0 to just empty the current mem[p]")
+				newTok, isStilLoop, instsadd := setValueAfterLoop(t, tokens[i+insts+1:])
+
+				if !isStilLoop {
+					lastOpWasLoop = false
 				}
 
 				// Add back a label to handle the case where the value was zero before the loop
@@ -297,23 +305,8 @@ mainloop:
 					Extra2: 0,
 				})
 
-				if value > 0 {
-					newTokens = append(newTokens, g.ParseToken{
-						Pos:    tokens[i+1].Pos,
-						Tok:    l.Token{Tok: l.MOV, TokenName: "MOV", Character: ""},
-						Extra:  value,
-						Extra2: 0,
-					})
-					lastOpWasLoop = false
-				} else {
-					newTokens = append(newTokens, g.ParseToken{
-						Pos:    t.Pos,
-						Tok:    l.Token{Tok: l.MUL, TokenName: "MUL", Character: ""},
-						Extra:  -1,
-						Extra2: 0,
-					})
-					lastOpWasLoop = false
-				}
+				newTokens = append(newTokens, *newTok)
+				insts += instsadd
 
 				D(t, "SLO: Loop optimized, skipping %d instructions", insts)
 
