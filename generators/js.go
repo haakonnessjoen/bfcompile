@@ -59,7 +59,8 @@ process.stdin.on("data", (data) => {
 
 async function main() {
 	const mem = new Uint8Array(%d);
-	let p = 0;`, memorySize)
+	let p = 0;
+`, memorySize)
 
 	indentLevel := 1
 	for _, t := range tokens {

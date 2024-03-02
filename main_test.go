@@ -149,7 +149,6 @@ func TestBZCheckOfOptimizedLoops(t *testing.T) {
 		t.Errorf("json.Marshal: %v", err)
 	}
 	got := string(gotb)
-
 	want := wantOutput("test06")
 
 	if got != want {

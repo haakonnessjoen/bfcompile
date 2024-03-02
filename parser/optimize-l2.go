@@ -139,6 +139,12 @@ mainloop:
 				if insts == 1 && (Peek(&tokens, i+1).Tok.Tok == l.SUB || Peek(&tokens, i+1).Tok.Tok == l.ADD) {
 					D(t, "SLO: Optimizing away zero-loop, setting resetting mem[p] directly")
 
+					prevToken := Peek(&newTokens, len(newTokens)-1)
+					if prevToken.Tok.Tok == l.ADD || prevToken.Tok.Tok == l.SUB || (prevToken.Tok.Tok == l.MOV && prevToken.Extra2 == 0) {
+						// Setting p* right before this loop is not needed, as this loop just resets the value anyways
+						newTokens = newTokens[:len(newTokens)-1]
+					}
+
 					value := 0
 					if Peek(&tokens, i+3).Tok.Tok == l.ADD {
 						value = Peek(&tokens, i+3).Extra
