@@ -34,6 +34,7 @@ const (
 	NOP
 	SCANL
 	SCANR
+	MOV
 )
 
 var tokens = []string{
@@ -55,6 +56,7 @@ var tokens = []string{
 	NOP:   "NOP",
 	SCANL: "SCANL",
 	SCANR: "SCANR",
+	MOV:   "MOV",
 }
 
 func (t Token) String() string {

@@ -3,6 +3,8 @@ package generators
 import (
 	l "bcomp/lexer"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 )
 
@@ -94,6 +96,21 @@ func PrintC(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memor
 			// Not implemented, because memrchr only seems to be included in GNU standard library
 		case l.SCANR:
 			f.Printf("%sp = (uint8_t *)(memchr(p, 0, sizeof(mem) - (p-mem)));\n", indent(indentLevel))
+		case l.MOV:
+			if t.Extra2 == 0 {
+				f.Printf("%s*p = %d;\n", indent(indentLevel), t.Extra)
+			} else {
+				f.Printf("%sp[%d] = %d;\n", indent(indentLevel), t.Extra2, t.Extra)
+			}
+		default:
+			log.Fatalf("Error: Unknown token %v\n", t.Tok)
+		}
+	}
+	if indentLevel > 1 {
+		fmt.Fprintf(os.Stderr, "Warning: Unbalanced brackets in code\n")
+		for indentLevel > 1 {
+			indentLevel--
+			f.Printf("%s}\n", indent(indentLevel))
 		}
 	}
 	f.Println("	return 0;")

@@ -4,6 +4,7 @@ import (
 	l "bcomp/lexer"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 )
 
@@ -142,8 +143,21 @@ async function main() {
 		case l.LBL:
 			indentLevel--
 			f.Printf("%s}\n", indent(indentLevel))
+		case l.MOV:
+			if t.Extra2 == 0 {
+				f.Printf("%smem[p] = %d;\n", indent(indentLevel), t.Extra)
+			} else {
+				f.Printf("%smem[p+%d] = %d;\n", indent(indentLevel), t.Extra2, t.Extra)
+			}
 		default:
-			log.Fatalf("Unknown token at %d:%d\n", t.Pos.Line, t.Pos.Column)
+			log.Fatalf("Error: Unknown token %v\n", t.Tok)
+		}
+	}
+	if indentLevel > 1 {
+		fmt.Fprintf(os.Stderr, "Warning: Unbalanced brackets in code\n")
+		for indentLevel > 1 {
+			indentLevel--
+			f.Printf("%s}\n", indent(indentLevel))
 		}
 	}
 	f.Println("	process.stdin.unref();")

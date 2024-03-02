@@ -3,6 +3,7 @@ package generators
 import (
 	l "bcomp/lexer"
 	"fmt"
+	"log"
 	"math"
 	"os"
 )
@@ -110,6 +111,23 @@ func PrintIL(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memo
 			f.Printf("@JMP%df\n", t.Extra)
 		case l.LBL:
 			f.Printf("@JMP%d\n", t.Extra)
+		case l.MOV:
+			ptr := t.Extra2
+			value := t.Extra
+			if ptr == 0 {
+				f.Printf("	%%v =w copy %d\n", value)
+				f.Printf("	storeb %%v, %%p\n")
+			} else {
+				if ptr > 0 {
+					f.Printf("	%%p2 =l add %%p, %d\n", ptr)
+				} else {
+					f.Printf("	%%p2 =l sub %%p, %d\n", -ptr)
+				}
+				f.Printf("	%%v2 =w copy %d\n", value)
+				f.Printf("	storeb %%v, %%p2\n")
+			}
+		default:
+			log.Fatalf("Error: Unknown token %v\n", t.Tok)
 		}
 	}
 	f.Println("	ret 0")

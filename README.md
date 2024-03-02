@@ -20,6 +20,8 @@ If you enable optimization, it optimizes the token tree (or array really) before
 
 - Added an `if` before the multiplication operations, in case the operation should not be done at all.
 
+- Just after a loop, we know that *p is 0, so if there is a ADD/SUB operation just after that, we can set it directly. For example `[-]++` would translate to `*p = 2`instead of`*p = 0; *p += 2;`
+
 Fun fact: It can also output Brainfuck, so you can use it to optimize your brainfuck (only level 1). For example output from this ["C" to bf compiler](https://github.com/elikaski/BF-it) can often be optimized quite a bit, as it does a lot of operations that would cancel eachother out.
 
 ## Prerequisites

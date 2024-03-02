@@ -103,6 +103,7 @@ mainloop:
 				D(t, "Aborting, putting JMPF back")
 				// Special case, a loop with no operation, cannot optimize as we cannot divide by 0.
 				newTokens = append(newTokens, t)
+				lastOpWasLoop = false
 				continue
 			}
 
@@ -131,19 +132,45 @@ mainloop:
 
 			isSimple, insts := isSimpleLoop(tokens[i+1:])
 			if isSimple {
-				// We found a simple loop that we can optimize away
+				// We found a simple loop that we can optimize away by using multiplication instead
 
-				// If the operation is [-], just optimize it to *p -= *p
+				// If the operation is [-], just optimize it to *p = 0
+				// or if the next operation is an ADD or SUB we can just set the value directly
 				if insts == 1 && (Peek(&tokens, i+1).Tok.Tok == l.SUB || Peek(&tokens, i+1).Tok.Tok == l.ADD) {
-					D(t, "Optimizing away small loop, pushing MUL with -1, 0 to just empty the pointer")
-					newTokens = append(newTokens, g.ParseToken{
-						Pos:    t.Pos,
-						Tok:    l.Token{Tok: l.MUL, TokenName: "MUL", Character: ""},
-						Extra:  -1,
-						Extra2: 0,
-					})
-					i += 2
-					lastOpWasLoop = true
+					D(t, "SLO: Optimizing away zero-loop, setting resetting mem[p] directly")
+
+					value := 0
+					if Peek(&tokens, i+3).Tok.Tok == l.ADD {
+						value = Peek(&tokens, i+3).Extra
+						D(t, "SLO: Pushing a MOV with %d, 0 to set final value of mem[p]", value)
+						insts++
+					} else if Peek(&tokens, i+3).Tok.Tok == l.SUB {
+						value = (0 - Peek(&tokens, i+3).Extra) % 256
+						D(t, "SLO: Pushing a MOV with %d, 0 to set final value of mem[p]", value)
+						insts++
+					} else {
+						D(t, "SLO: No ADD/SUB found, pushing a MUL with -1, 0 to just empty the current mem[p]")
+					}
+
+					if value > 0 {
+						newTokens = append(newTokens, g.ParseToken{
+							Pos:    tokens[i+3].Pos,
+							Tok:    l.Token{Tok: l.MOV, TokenName: "MOV", Character: ""},
+							Extra:  value,
+							Extra2: 0,
+						})
+						lastOpWasLoop = false
+					} else {
+						newTokens = append(newTokens, g.ParseToken{
+							Pos:    tokens[i+2].Pos,
+							Tok:    l.Token{Tok: l.MUL, TokenName: "MUL", Character: ""},
+							Extra:  -1,
+							Extra2: 0,
+						})
+						lastOpWasLoop = false
+					}
+
+					i += insts + 1
 					continue
 				}
 
@@ -163,6 +190,7 @@ mainloop:
 						// At the moment, we don't handle loops that counts upwards
 						// We abort this optimization and just add the tokens as they are
 						newTokens = append(newTokens, t)
+						lastOpWasLoop = false
 						continue mainloop
 					} else if pointer == 0 && ttoken == l.SUB {
 						// Count the number of decrements of p[0]
@@ -173,7 +201,7 @@ mainloop:
 				pointer = 0
 				// If the decrementer is not 1, we need to divide p[0] with the decrementer to get the correct multiplier
 				if decrementer != 1 && decrementer != 0 {
-					D(t, "Loop with decrementer %d, adding DIV with (%d, 0)", decrementer, decrementer)
+					D(t, "SLO: Loop with decrementer %d, adding DIV with (%d, 0)", decrementer, decrementer)
 					newTokens = append(newTokens, g.ParseToken{
 						Pos:    t.Pos,
 						Tok:    l.Token{Tok: l.DIV, TokenName: "DIV", Character: ""},
@@ -181,9 +209,9 @@ mainloop:
 						Extra2: 0,
 					})
 				}
-				D(t, "Loop had %d instructions, with %d decrements of p[0] per round", insts, decrementer)
+				D(t, "SLO: Loop had %d instructions, with %d decrements of p[0] per round", insts, decrementer)
 
-				D(t, "Add a BZ to check if the pointer is != 0, or else wi might try to assign 0 to invalid memory locations")
+				D(t, "SLO: Add a BZ to check if the pointer is != 0, or else wi might try to assign 0 to invalid memory locations")
 				newTokens = append(newTokens, g.ParseToken{
 					Pos:   t.Pos,
 					Tok:   l.Token{Tok: l.BZ, TokenName: "BZ", Character: ""},
@@ -211,11 +239,11 @@ mainloop:
 					} else if pointer == 0 && ttoken == l.SUB {
 						// Ignore, we already handled this
 					} else if ttoken == l.INCP {
-						D(tt, "INCP with %d, New P is %d", tt.Extra, pointer+tt.Extra)
+						D(tt, "SLO: INCP with %d, New P is %d", tt.Extra, pointer+tt.Extra)
 						// Keep track of the pointer, this is previously optimized so .Extra holds the number of increments
 						pointer += tt.Extra
 					} else if ttoken == l.DECP {
-						D(tt, "DECP with %d, New P is %d", tt.Extra, pointer-tt.Extra)
+						D(tt, "SLO: DECP with %d, New P is %d", tt.Extra, pointer-tt.Extra)
 						// Keep track of the pointer
 						pointer -= tt.Extra
 					} else {
@@ -230,7 +258,7 @@ mainloop:
 							count = -count
 						}
 
-						D(tt, "Adding MUL with %d, %d", count, pointer)
+						D(tt, "SLO: Adding MUL with %d, %d", count, pointer)
 						// Add the multiplication operation
 						// This would be translated to for example: p[pointer] += p[0] * count
 						newTokens = append(newTokens, g.ParseToken{
@@ -242,14 +270,18 @@ mainloop:
 					}
 				}
 
-				D(t, "Loop optimized, skipping %d instructions, adding a MUL (-1,0) to zero p[0]", insts)
-				// Set p[0] to 0, as it has just exited the "loop" and would be zero
-				newTokens = append(newTokens, g.ParseToken{
-					Pos:    t.Pos,
-					Tok:    l.Token{Tok: l.MUL, TokenName: "MUL", Character: ""},
-					Extra:  -1,
-					Extra2: 0,
-				})
+				value := 0
+				if Peek(&tokens, i+insts+2).Tok.Tok == l.ADD {
+					value = Peek(&tokens, i+insts+2).Extra
+					D(t, "SLO: Pushing a MOV with %d, 0 to set final value of mem[p]", value)
+					insts++
+				} else if Peek(&tokens, i+insts+2).Tok.Tok == l.SUB {
+					value = (0 - Peek(&tokens, i+insts+2).Extra) % 256
+					D(t, "SLO: Pushing a MOV with %d, 0 to set final value of mem[p]", value)
+					insts++
+				} else {
+					D(t, "SLO: No ADD/SUB found, pushing a MUL with -1, 0 to just empty the current mem[p]")
+				}
 
 				// Add back a label to handle the case where the value was zero before the loop
 				newTokens = append(newTokens, g.ParseToken{
@@ -259,11 +291,31 @@ mainloop:
 					Extra2: 0,
 				})
 
+				if value > 0 {
+					newTokens = append(newTokens, g.ParseToken{
+						Pos:    tokens[i+1].Pos,
+						Tok:    l.Token{Tok: l.MOV, TokenName: "MOV", Character: ""},
+						Extra:  value,
+						Extra2: 0,
+					})
+					lastOpWasLoop = false
+				} else {
+					newTokens = append(newTokens, g.ParseToken{
+						Pos:    t.Pos,
+						Tok:    l.Token{Tok: l.MUL, TokenName: "MUL", Character: ""},
+						Extra:  -1,
+						Extra2: 0,
+					})
+					lastOpWasLoop = false
+				}
+
+				D(t, "SLO: Loop optimized, skipping %d instructions", insts)
+
 				// Skip over the loop tokens we just processed, and continue in the outer loop
 				i += insts + 1
-				lastOpWasLoop = true
 				continue
 			}
+			lastOpWasLoop = false
 		} else if token == l.JMPB {
 			lastOpWasLoop = true
 		} else {
