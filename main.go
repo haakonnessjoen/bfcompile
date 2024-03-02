@@ -12,6 +12,7 @@ import (
 var (
 	optGenerator  string
 	optOptimize   bool
+	optDebug      bool
 	optComments   bool
 	optMemorySize int
 	optOutput     string
@@ -23,6 +24,7 @@ func main() {
 	flag.StringVar(&optGenerator, "g", "qbe", "Generator to use, qbe, c, js or bf")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
+	flag.BoolVar(&optDebug, "d", false, "Enable debug output from optimizer")
 	flag.IntVar(&optMemorySize, "m", 30000, "Memory size available to brainfuck in the generated code")
 	flag.StringVar(&optOutput, "out", "", "Set a filename to output to instead of outputting to STDOUT.")
 
@@ -45,6 +47,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: Unknown generator %s\n\n", optGenerator)
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	if optDebug {
+		p.Debug = true
 	}
 
 	tokens := p.ParseFile(flag.Args()[0])

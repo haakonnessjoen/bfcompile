@@ -26,7 +26,7 @@ const (
 	JMPF // [
 	JMPB // ]
 
-	// Non-BF operations
+	// Non-BF IR operations
 	MUL
 	DIV
 	BZ

@@ -8,6 +8,8 @@ import (
 	"os"
 )
 
+var Debug = false
+
 // Check if all code inside a loop is inc/dec/incp/decp
 func isSimpleLoop(tokens []g.ParseToken) (bool, int) {
 	pointer := 0
@@ -42,10 +44,8 @@ func isSimpleLoop(tokens []g.ParseToken) (bool, int) {
 	return false, 0
 }
 
-const debug = false
-
 func D(token g.ParseToken, format string, a ...interface{}) {
-	if debug {
+	if Debug {
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("%d:%d %s (%d, %d) => %s\n", token.Pos.Line, token.Pos.Column, token.Tok.TokenName, token.Extra, token.Extra2, format), a...)
 	}
 }
@@ -85,7 +85,9 @@ mainloop:
 
 		if token == l.JMPF {
 			// If a loop start immediately after another one, it will never be entered.
+			// So we can remove it and everything it contains.
 			if lastOpWasLoop {
+				// Find next JMPB on the same scope
 				insts := findLoopEnd(tokens[i+1:])
 				if insts == -1 {
 					fmt.Fprintf(os.Stderr, "Parse error: Unterminated loop at %d:%d", t.Pos.Line, t.Pos.Column)
