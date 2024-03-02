@@ -120,7 +120,7 @@ func TestJSL1Optimized(t *testing.T) {
 func TestJSL2Optimized(t *testing.T) {
 	tokens := p.ParseFile("testdata/test05.bf")
 	tokens = p.Optimize(tokens)
-	tokens = p.Optimize2(tokens)
+	tokens = p.Optimize2(tokens, "js")
 	f := g.NewGeneratorOutputString()
 	g.PrintJS(f, tokens, false, 30000)
 
@@ -138,7 +138,7 @@ func TestJSL2Optimized(t *testing.T) {
 func TestBZCheckOfOptimizedLoops(t *testing.T) {
 	tokens := p.ParseFile("testdata/test06.bf")
 	tokens = p.Optimize(tokens)
-	tokens = p.Optimize2(tokens)
+	tokens = p.Optimize2(tokens, "js")
 
 	tokenstrings := make([]string, 0, len(tokens))
 	for _, t := range tokens {

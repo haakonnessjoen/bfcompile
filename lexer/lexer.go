@@ -31,6 +31,9 @@ const (
 	DIV
 	BZ
 	LBL
+	NOP
+	SCANL
+	SCANR
 )
 
 var tokens = []string{
@@ -45,10 +48,13 @@ var tokens = []string{
 	JMPF: "JMPF",
 	JMPB: "JMPB",
 
-	MUL: "MUL",
-	DIV: "DIV",
-	BZ:  "BZ",
-	LBL: "LBL",
+	MUL:   "MUL",
+	DIV:   "DIV",
+	BZ:    "BZ",
+	LBL:   "LBL",
+	NOP:   "NOP",
+	SCANL: "SCANL",
+	SCANR: "SCANR",
 }
 
 func (t Token) String() string {

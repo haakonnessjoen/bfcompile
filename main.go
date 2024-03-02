@@ -63,7 +63,7 @@ func main() {
 	}
 
 	if optOptimize && optGenerator != "bf" {
-		tokens = p.Optimize2(tokens)
+		tokens = p.Optimize2(tokens, optGenerator)
 	}
 
 	if optOptimize && initialCount > 0 {

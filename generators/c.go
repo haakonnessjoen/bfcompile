@@ -10,6 +10,7 @@ import (
 func PrintC(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memorySize int) {
 	f.Println("#include <stdio.h>")
 	f.Println("#include <stdint.h>")
+	f.Println("#include <string.h>")
 
 	f.Printf("uint8_t mem[%d];\n", memorySize)
 	f.Println("int main() {")
@@ -89,6 +90,10 @@ func PrintC(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memor
 		case l.LBL:
 			indentLevel--
 			f.Printf("%s}\n", indent(indentLevel))
+		case l.SCANL:
+			// Not implemented, because memrchr only seems to be included in GNU standard library
+		case l.SCANR:
+			f.Printf("%sp = (uint8_t *)(memchr(p, 0, sizeof(mem) - (p-mem)));\n", indent(indentLevel))
 		}
 	}
 	f.Println("	return 0;")

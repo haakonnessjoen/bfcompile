@@ -50,22 +50,81 @@ func D(token g.ParseToken, format string, a ...interface{}) {
 	}
 }
 
+func Peek(tokens *[]g.ParseToken, idx int) *g.ParseToken {
+	if idx < 0 || idx > len(*tokens)-1 {
+		return &g.ParseToken{Tok: l.Token{Tok: l.NOP, TokenName: "", Character: ""}, Pos: l.Position{}}
+	}
+	return &(*tokens)[idx]
+}
+
+func findLoopEnd(tokens []g.ParseToken) int {
+	depth := 1
+	for i, t := range tokens {
+		if t.Tok.Tok == l.JMPF {
+			depth++
+		} else if t.Tok.Tok == l.JMPB {
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+
+	return -1
+}
+
 // This will optimize the code and add multiplication
 // so this optimizer will generate new tokens not supported by the Brainfuck generator
-func Optimize2(tokens []g.ParseToken) []g.ParseToken {
+func Optimize2(tokens []g.ParseToken, generator string) []g.ParseToken {
 	newTokens := make([]g.ParseToken, 0, len(tokens))
-
+	lastOpWasLoop := false
 mainloop:
 	for i := 0; i < len(tokens); i++ {
 		t := tokens[i]
 		token := t.Tok.Tok
 
 		if token == l.JMPF {
-			if tokens[i+1].Tok.Tok == l.JMPB {
+			// If a loop start immediately after another one, it will never be entered.
+			if lastOpWasLoop {
+				insts := findLoopEnd(tokens[i+1:])
+				if insts == -1 {
+					fmt.Fprintf(os.Stderr, "Parse error: Unterminated loop at %d:%d", t.Pos.Line, t.Pos.Column)
+				}
+				// Skip over loop, and let "lastOpWasLoop" be true
+				// as this also was a loop.
+				D(t, "Skipping entire loop, since we know mem[p] is 0")
+				i += insts + 1
+				continue
+			}
+
+			if Peek(&tokens, i+1).Tok.Tok == l.JMPB {
 				D(t, "Aborting, putting JMPF back")
 				// Special case, a loop with no operation, cannot optimize as we cannot divide by 0.
 				newTokens = append(newTokens, t)
 				continue
+			}
+
+			// Found this idea here: http://calmerthanyouare.org/2015/01/07/optimizing-brainfuck.html
+			// C stdlib has memchr() to go through data fast, (but seems like memrchr() is only in gnu stdlib)
+			if generator == "c" {
+				if Peek(&tokens, i+2).Tok.Tok == l.JMPB && (Peek(&tokens, i+1).Tok.Tok == l.INCP || Peek(&tokens, i+1).Tok.Tok == l.DECP) && Peek(&tokens, i+1).Extra == 1 {
+					D(t, "C optimization, found a simple scanloop")
+					if Peek(&tokens, i+1).Tok.Tok == l.INCP {
+						newTokens = append(newTokens, g.ParseToken{
+							Pos: t.Pos,
+							Tok: l.Token{Tok: l.SCANR, TokenName: "SCANR", Character: ""},
+						})
+						/*} else {
+							newTokens = append(newTokens, g.ParseToken{
+								Pos: t.Pos,
+								Tok: l.Token{Tok: l.SCANL, TokenName: "SCANL", Character: ""},
+							})
+						}*/
+						i += 2
+						lastOpWasLoop = true
+						continue
+					}
+				}
 			}
 
 			isSimple, insts := isSimpleLoop(tokens[i+1:])
@@ -73,7 +132,7 @@ mainloop:
 				// We found a simple loop that we can optimize away
 
 				// If the operation is [-], just optimize it to *p -= *p
-				if insts == 1 && tokens[i+1].Tok.Tok == l.SUB {
+				if insts == 1 && (Peek(&tokens, i+1).Tok.Tok == l.SUB || Peek(&tokens, i+1).Tok.Tok == l.ADD) {
 					D(t, "Optimizing away small loop, pushing MUL with -1, 0 to just empty the pointer")
 					newTokens = append(newTokens, g.ParseToken{
 						Pos:    t.Pos,
@@ -82,6 +141,7 @@ mainloop:
 						Extra2: 0,
 					})
 					i += 2
+					lastOpWasLoop = true
 					continue
 				}
 
@@ -127,6 +187,16 @@ mainloop:
 					Tok:   l.Token{Tok: l.BZ, TokenName: "BZ", Character: ""},
 					Extra: t.Extra, // We re-use the jump label
 				})
+
+				if i+1 >= len(tokens) {
+					fmt.Fprintf(os.Stderr, "Parse error: Unterminated loop at %d:%d", t.Pos.Line, t.Pos.Column)
+					os.Exit(1)
+				}
+
+				if i+1+insts >= len(tokens) {
+					fmt.Fprintf(os.Stderr, "Internal error: Unexpected unterminated loop at %d:%d", t.Pos.Line, t.Pos.Column)
+					os.Exit(1)
+				}
 
 				// Start the actual optimization, lets add the multiplication operations
 				for j := i + 1; j < i+1+insts; j++ {
@@ -189,8 +259,13 @@ mainloop:
 
 				// Skip over the loop tokens we just processed, and continue in the outer loop
 				i += insts + 1
+				lastOpWasLoop = true
 				continue
 			}
+		} else if token == l.JMPB {
+			lastOpWasLoop = true
+		} else {
+			lastOpWasLoop = false
 		}
 
 		newTokens = append(newTokens, t)
