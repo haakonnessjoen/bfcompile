@@ -6,11 +6,13 @@ import (
 	"os"
 
 	g "bcomp/generators"
+	i "bcomp/interpreter"
 	p "bcomp/parser"
 )
 
 var (
 	optGenerator  string
+	optInterpret  bool
 	optOptimize   bool
 	optDebug      bool
 	optComments   bool
@@ -22,11 +24,16 @@ func main() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	// parse command line arguments
 	flag.StringVar(&optGenerator, "g", "qbe", "Generator to use, qbe, c, js or bf")
+	flag.BoolVar(&optInterpret, "i", false, "Interpret the code instead of generating code. This will ignore the generator option.")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
 	flag.BoolVar(&optDebug, "d", false, "Enable debug output from optimizer")
 	flag.IntVar(&optMemorySize, "m", 30000, "Memory size available to brainfuck in the generated code")
 	flag.StringVar(&optOutput, "out", "", "Set a filename to output to instead of outputting to STDOUT.")
+
+	if optInterpret {
+		optGenerator = "qbe"
+	}
 
 	// Customize usage message
 	flag.Usage = func() {
@@ -74,7 +81,9 @@ func main() {
 
 	if optOptimize && initialCount > 0 {
 		if optGenerator != "bf" {
-			//fmt.Fprintf(os.Stderr, "Optimized from %d to %d instructions. Token reduction of %.f%%\n", initialCount, len(tokens), 100-((float64(len(tokens))/float64(initialCount))*100))
+			if optDebug {
+				fmt.Fprintf(os.Stderr, "(bf output) Optimized from %d to %d instructions. Token reduction of %.f%%\n", initialCount, len(tokens), 100-((float64(len(tokens))/float64(initialCount))*100))
+			}
 		} else {
 			operations := 0
 			for _, t := range tokens {
@@ -86,21 +95,27 @@ func main() {
 			}
 
 			// To not confuse the user, we count all the individual instructions as brainfuck will not be able to output less instructions
-			//fmt.Fprintf(os.Stderr, "Optimized from %d to %d instructions. Reduction of %.f%%\n", initialCount, operations, 100-((float64(operations)/float64(initialCount))*100))
+			if optDebug {
+				fmt.Fprintf(os.Stderr, "Optimized from %d to %d instructions. Reduction of %.f%%\n", initialCount, operations, 100-((float64(operations)/float64(initialCount))*100))
+			}
 		}
 	}
 
-	output := g.NewGeneratorOutputFile(optOutput)
-	defer output.Close()
+	if optInterpret {
+		i.InterpretTokens(tokens, optMemorySize)
+	} else {
+		output := g.NewGeneratorOutputFile(optOutput)
+		defer output.Close()
 
-	switch optGenerator {
-	case "qbe":
-		g.PrintIL(output, tokens, optComments, optMemorySize)
-	case "c":
-		g.PrintC(output, tokens, optComments, optMemorySize)
-	case "js":
-		g.PrintJS(output, tokens, optComments, optMemorySize)
-	case "bf":
-		g.PrintBF(output, tokens, optComments)
+		switch optGenerator {
+		case "qbe":
+			g.PrintIL(output, tokens, optComments, optMemorySize)
+		case "c":
+			g.PrintC(output, tokens, optComments, optMemorySize)
+		case "js":
+			g.PrintJS(output, tokens, optComments, optMemorySize)
+		case "bf":
+			g.PrintBF(output, tokens, optComments)
+		}
 	}
 }
