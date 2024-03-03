@@ -74,7 +74,7 @@ func InterpretTokens(tokens []g.ParseToken, memorySize int) {
 			for j := 0; j < value; j++ {
 				c, err := in.ReadByte()
 				if err != nil {
-					mem[p] = 255
+					// Leave input as is, which a lot of programs expect
 				} else {
 					mem[p] = c
 				}

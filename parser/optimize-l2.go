@@ -115,7 +115,8 @@ func setValueAfterLoop(t g.ParseToken, tokens []g.ParseToken) (newToken *g.Parse
 // so this optimizer will generate new tokens not supported by the Brainfuck generator
 func Optimize2(tokens []g.ParseToken, generator string) []g.ParseToken {
 	newTokens := make([]g.ParseToken, 0, len(tokens))
-	lastOpWasLoop := false
+	// We know that the first byte is 0
+	lastOpWasLoop := true
 mainloop:
 	for i := 0; i < len(tokens); i++ {
 		t := tokens[i]

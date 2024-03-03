@@ -23,8 +23,8 @@ var (
 func main() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	// parse command line arguments
-	flag.StringVar(&optGenerator, "g", "qbe", "Generator to use, qbe, c, js or bf")
-	flag.BoolVar(&optInterpret, "i", false, "Interpret the code instead of generating code. This will ignore the generator option.")
+	flag.StringVar(&optGenerator, "g", "qbe", "Code generator to use, qbe, c, js or bf")
+	flag.BoolVar(&optInterpret, "i", false, "Interpret the code instead of generating code. This will ignore the -g option.")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
 	flag.BoolVar(&optDebug, "d", false, "Enable debug output from optimizer")
