@@ -102,6 +102,8 @@ func PrintC(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memor
 			} else {
 				f.Printf("%sp[%d] = %d;\n", indent(indentLevel), t.Extra2, t.Extra)
 			}
+		case l.PRNT:
+			f.Printf("%sp += fputs((char *)p, stdout);\n", indent(indentLevel))
 		default:
 			log.Fatalf("Error: Unknown token %v\n", t.Tok)
 		}

@@ -166,6 +166,17 @@ mainloop:
 						continue
 					}
 				}
+
+				// Find [.>], it's a simple puts
+				if Peek(&tokens, i+1).Tok.Tok == l.OUT && Peek(&tokens, i+2).Tok.Tok == l.INCP && Peek(&tokens, i+3).Tok.Tok == l.JMPB {
+					newTokens = append(newTokens, g.ParseToken{
+						Pos: t.Pos,
+						Tok: l.Token{Tok: l.PRNT, TokenName: "PRNT", Character: ""},
+					})
+					i += 3
+					lastOpWasLoop = true
+					continue
+				}
 			}
 
 			isSimple, insts := isSimpleLoop(tokens[i+1:])
