@@ -142,7 +142,7 @@ func TestComplicatedCodeNumasciiartOptimize2(t *testing.T) {
 func TestComplicatedCodeTictactoe(t *testing.T) {
 	tokens := p.ParseFile("brainfuck/tictactoe.bf")
 
-	got := getInterpretedOutput(tokens, []byte("5\n3\n8\n"))
+	got := getInterpretedOutput(tokens, []byte("5\n8\n3\n4\n"))
 	want := wantOutput("tictactoe")
 
 	if !bytes.Equal(got, want) {
@@ -155,7 +155,7 @@ func TestComplicatedCodeTictactoeOptimize1(t *testing.T) {
 
 	tokens = p.Optimize(tokens)
 
-	got := getInterpretedOutput(tokens, []byte("5\n3\n8\n"))
+	got := getInterpretedOutput(tokens, []byte("5\n8\n3\n4\n"))
 	want := wantOutput("tictactoe")
 
 	if !bytes.Equal(got, want) {
@@ -169,7 +169,7 @@ func TestComplicatedCodeTictactoeOptimize2(t *testing.T) {
 	tokens = p.Optimize(tokens)
 	tokens = p.Optimize2(tokens, "")
 
-	got := getInterpretedOutput(tokens, []byte("5\n3\n8\n"))
+	got := getInterpretedOutput(tokens, []byte("5\n8\n3\n4\n"))
 	want := wantOutput("tictactoe")
 
 	if !bytes.Equal(got, want) {
