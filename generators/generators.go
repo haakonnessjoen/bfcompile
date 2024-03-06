@@ -35,11 +35,11 @@ func NewGeneratorOutputString() *GeneratorOutput {
 	return &GeneratorOutput{nil, ""}
 }
 
-func (g *GeneratorOutput) GetOutput() string {
+func (g *GeneratorOutput) GetOutput() []byte {
 	if g.file == nil {
-		return g.data
+		return []byte(g.data)
 	}
-	return ""
+	return []byte{}
 }
 
 func (g *GeneratorOutput) Close() {

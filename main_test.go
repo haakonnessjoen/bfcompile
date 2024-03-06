@@ -1,24 +1,27 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"testing"
 
+	"bcomp/bfutils"
 	g "bcomp/generators"
+	i "bcomp/interpreter"
 	p "bcomp/parser"
 
 	"github.com/google/uuid"
 )
 
-func wantOutput(test string) string {
+func wantOutput(test string) []byte {
 	content, err := os.ReadFile(fmt.Sprintf("testdata/%s_out.txt", test))
 	if err != nil {
 		log.Fatal(err)
 	}
-	return string(content)
+	return content
 }
 
 type TempFile string
@@ -33,13 +36,21 @@ func tempFile() TempFile {
 	return TempFile(file)
 }
 
-func (f TempFile) ReadFile() string {
+func getInterpretedOutput(tokens []g.ParseToken, input []byte) []byte {
+	in := bytes.NewReader(input)
+	out := bytes.NewBuffer([]byte{})
+	i.InterpretTokens(tokens, 30000, in, bfutils.WrapBuffer(out))
+
+	return out.Bytes()
+}
+
+func (f TempFile) ReadFile() []byte {
 	content, err := os.ReadFile(string(f))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return string(content)
+	return content
 }
 
 func (f TempFile) Remove() {
@@ -63,7 +74,7 @@ func TestBFtoBF(t *testing.T) {
 	got := filename.ReadFile()
 	want := wantOutput("test01")
 
-	if got != want {
+	if !bytes.Equal(got, want) {
 		t.Errorf("got %q, wanted %q", got, want)
 	}
 }
@@ -85,20 +96,83 @@ func TestBFOptimizetoBF(t *testing.T) {
 	got := filename.ReadFile()
 	want := wantOutput("test02")
 
-	if got != want {
+	if !bytes.Equal(got, want) {
 		t.Errorf("got %q, wanted %q", got, want)
 	}
 }
 
-func TestJSVanilla(t *testing.T) {
-	tokens := p.ParseFile("testdata/test03.bf")
-	f := g.NewGeneratorOutputString()
-	g.PrintJS(f, tokens, false, 30000)
+func TestComplicatedCodeNumasciiart(t *testing.T) {
+	tokens := p.ParseFile("brainfuck/numasciiart.bf")
 
-	got := f.GetOutput()
-	want := wantOutput("test03")
+	got := getInterpretedOutput(tokens, []byte("(0123456789-abcdef/. . .)\n"))
+	want := wantOutput("numasciiart")
 
-	if got != want {
+	if !bytes.Equal(got, want) {
+		t.Errorf("got %q, wanted %q", got, want)
+	}
+}
+
+func TestComplicatedCodeNumasciiartOptimize1(t *testing.T) {
+	tokens := p.ParseFile("brainfuck/numasciiart.bf")
+
+	tokens = p.Optimize(tokens)
+
+	got := getInterpretedOutput(tokens, []byte("(0123456789-abcdef/. . .)\n"))
+	want := wantOutput("numasciiart")
+
+	if !bytes.Equal(got, want) {
+		t.Errorf("got %q, wanted %q", got, want)
+	}
+}
+
+func TestComplicatedCodeNumasciiartOptimize2(t *testing.T) {
+	tokens := p.ParseFile("brainfuck/numasciiart.bf")
+
+	tokens = p.Optimize(tokens)
+	tokens = p.Optimize2(tokens, "")
+
+	got := getInterpretedOutput(tokens, []byte("(0123456789-abcdef/. . .)\n"))
+	want := wantOutput("numasciiart")
+
+	if !bytes.Equal(got, want) {
+		t.Errorf("got %q, wanted %q", got, want)
+	}
+}
+
+func TestComplicatedCodeTictactoe(t *testing.T) {
+	tokens := p.ParseFile("brainfuck/tictactoe.bf")
+
+	got := getInterpretedOutput(tokens, []byte("5\n3\n8\n"))
+	want := wantOutput("tictactoe")
+
+	if !bytes.Equal(got, want) {
+		t.Errorf("got %q, wanted %q", got, want)
+	}
+}
+
+func TestComplicatedCodeTictactoeOptimize1(t *testing.T) {
+	tokens := p.ParseFile("brainfuck/tictactoe.bf")
+
+	tokens = p.Optimize(tokens)
+
+	got := getInterpretedOutput(tokens, []byte("5\n3\n8\n"))
+	want := wantOutput("tictactoe")
+
+	if !bytes.Equal(got, want) {
+		t.Errorf("got %q, wanted %q", got, want)
+	}
+}
+
+func TestComplicatedCodeTictactoeOptimize2(t *testing.T) {
+	tokens := p.ParseFile("brainfuck/tictactoe.bf")
+
+	tokens = p.Optimize(tokens)
+	tokens = p.Optimize2(tokens, "")
+
+	got := getInterpretedOutput(tokens, []byte("5\n3\n8\n"))
+	want := wantOutput("tictactoe")
+
+	if !bytes.Equal(got, want) {
 		t.Errorf("got %q, wanted %q", got, want)
 	}
 }
@@ -112,7 +186,7 @@ func TestJSL1Optimized(t *testing.T) {
 	got := f.GetOutput()
 	want := wantOutput("test04")
 
-	if got != want {
+	if !bytes.Equal(got, want) {
 		t.Errorf("got %q, wanted %q", got, want)
 	}
 }
@@ -127,7 +201,7 @@ func TestJSL2Optimized(t *testing.T) {
 	got := f.GetOutput()
 	want := wantOutput("test05")
 
-	if got != want {
+	if !bytes.Equal(got, want) {
 		t.Errorf("got %q, wanted %q", got, want)
 	}
 }
@@ -135,7 +209,7 @@ func TestJSL2Optimized(t *testing.T) {
 // This test checks if the optimized loop outputs the correct code
 // The code will go out of bounds if the first inner loop is not skipped
 // correctly.
-func TestBZCheckOfOptimizedLoops(t *testing.T) {
+func TestBZCheckComplicatedCode1(t *testing.T) {
 	tokens := p.ParseFile("testdata/test06.bf")
 	tokens = p.Optimize(tokens)
 	tokens = p.Optimize2(tokens, "js")
@@ -144,14 +218,13 @@ func TestBZCheckOfOptimizedLoops(t *testing.T) {
 	for _, t := range tokens {
 		tokenstrings = append(tokenstrings, t.String())
 	}
-	gotb, err := json.MarshalIndent(tokenstrings, "", "\t")
+	got, err := json.MarshalIndent(tokenstrings, "", "\t")
 	if err != nil {
 		t.Errorf("json.Marshal: %v", err)
 	}
-	got := string(gotb)
 	want := wantOutput("test06")
 
-	if got != want {
+	if !bytes.Equal(got, want) {
 		t.Errorf("got %q, wanted %q", got, want)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"bcomp/bfutils"
 	g "bcomp/generators"
 	i "bcomp/interpreter"
 	p "bcomp/parser"
@@ -102,7 +103,7 @@ func main() {
 	}
 
 	if optInterpret {
-		i.InterpretTokens(tokens, optMemorySize)
+		i.InterpretTokens(tokens, optMemorySize, os.Stdin, bfutils.WrapStdout(os.Stdout))
 	} else {
 		output := g.NewGeneratorOutputFile(optOutput)
 		defer output.Close()

@@ -1,9 +1,9 @@
 package interpreter
 
 import (
+	"bcomp/bfutils"
 	g "bcomp/generators"
 	l "bcomp/lexer"
-	"bufio"
 	"fmt"
 	"os"
 )
@@ -13,8 +13,7 @@ type Jump struct {
 	To   int
 }
 
-func InterpretTokens(tokens []g.ParseToken, memorySize int) {
-	in, out := bufio.NewReader(os.Stdin), bufio.NewWriter(os.Stdout)
+func InterpretTokens(tokens []g.ParseToken, memorySize int, in bfutils.FileOrMemReader, out bfutils.FileOrMemWriter) {
 	mem := make([]byte, memorySize)
 	jumpLabels := make(map[int]Jump)
 
@@ -67,16 +66,17 @@ func InterpretTokens(tokens []g.ParseToken, memorySize int) {
 		case l.OUT:
 			//fmt.Fprintf(os.Stderr, "Output: %c %d\n", mem[p], mem[p])
 			for j := 0; j < value; j++ {
-				out.WriteByte(mem[p])
+				out.Write(mem[p : p+1])
 			}
 			out.Flush()
 		case l.IN:
+			v := make([]byte, 1)
 			for j := 0; j < value; j++ {
-				c, err := in.ReadByte()
-				if err != nil {
+				len, err := in.Read(v)
+				if err != nil || len == 0 {
 					// Leave input as is, which a lot of programs expect
 				} else {
-					mem[p] = c
+					mem[p] = v[0]
 				}
 			}
 		case l.JMPF:
