@@ -8,6 +8,8 @@ The idea came when I saw the Youtuber [tsoding](https://www.youtube.com/watch?v=
 
 If you enable optimization, it optimizes the token tree (or array really) before it generates code with the following optimalizations, output is explained with C for simplicity:
 
+- Memory size (default 30KB) and cell size (32,16 or 8 bit) is configurable
+
 - Multiple equal operations are aggregated, for example `++++` would generate `*p += 4` in C
 
 - Opposing operations cancel eachother out. For example `+++--` would generate `*p++` in C

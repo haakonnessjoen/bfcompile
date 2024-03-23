@@ -17,6 +17,7 @@ var (
 	optOptimize   bool
 	optDebug      bool
 	optComments   bool
+	optWordSize   int
 	optMemorySize int
 	optOutput     string
 )
@@ -24,11 +25,12 @@ var (
 func main() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	// parse command line arguments
-	flag.StringVar(&optGenerator, "g", "qbe", "Code generator to use, qbe, c, js or bf")
+	flag.StringVar(&optGenerator, "g", "qbe", "Code generator to use: tokens, qbe, c, js or bf")
 	flag.BoolVar(&optInterpret, "i", false, "Interpret the code instead of generating code. This will ignore the -g option.")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
 	flag.BoolVar(&optDebug, "d", false, "Enable debug output from optimizer")
+	flag.IntVar(&optWordSize, "w", 8, "Cell size (8, 16 or 32)")
 	flag.IntVar(&optMemorySize, "m", 30000, "Memory size available to brainfuck in the generated code")
 	flag.StringVar(&optOutput, "out", "", "Set a filename to output to instead of outputting to STDOUT.")
 
@@ -51,7 +53,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "js" && optGenerator != "bf" {
+	if optWordSize != 8 && optWordSize != 16 && optWordSize != 32 {
+		fmt.Fprintf(os.Stderr, "Error: Unknown cell size: %d\n\n", optWordSize)
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "js" && optGenerator != "bf" && optGenerator != "tokens" {
 		fmt.Fprintf(os.Stderr, "Error: Unknown generator %s\n\n", optGenerator)
 		flag.Usage()
 		os.Exit(1)
@@ -78,6 +86,7 @@ func main() {
 
 	if optOptimize && optGenerator != "bf" {
 		tokens = p.Optimize2(tokens, optGenerator)
+		tokens = p.Optimize2(tokens, optGenerator)
 	}
 
 	if optOptimize && initialCount > 0 {
@@ -103,20 +112,22 @@ func main() {
 	}
 
 	if optInterpret {
-		i.InterpretTokens(tokens, optMemorySize, os.Stdin, bfutils.WrapStdout(os.Stdout))
+		i.InterpretTokens(tokens, optMemorySize, os.Stdin, bfutils.WrapStdout(os.Stdout), optWordSize)
 	} else {
 		output := g.NewGeneratorOutputFile(optOutput)
 		defer output.Close()
 
 		switch optGenerator {
 		case "qbe":
-			g.PrintIL(output, tokens, optComments, optMemorySize)
+			g.PrintIL(output, tokens, optComments, optMemorySize, optWordSize)
 		case "c":
-			g.PrintC(output, tokens, optComments, optMemorySize)
+			g.PrintC(output, tokens, optComments, optMemorySize, optWordSize)
 		case "js":
-			g.PrintJS(output, tokens, optComments, optMemorySize)
+			g.PrintJS(output, tokens, optComments, optMemorySize, optWordSize)
 		case "bf":
 			g.PrintBF(output, tokens, optComments)
+		case "tokens":
+			g.PrintTokens(output, tokens, optComments)
 		}
 	}
 }

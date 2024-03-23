@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var PrintWarnings = true
+
 type ParseToken struct {
 	Pos    l.Position
 	Tok    l.Token

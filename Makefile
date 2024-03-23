@@ -10,7 +10,7 @@ EXECS := $(patsubst $(SRC_DIR)/%.bf,%,$(SRCS))
 
 .PRECIOUS: %.ssa
 %.ssa: %.bf bfcompile
-	./bfcompile -o -g qbe $< > $@
+	./bfcompile -o -w 32 -g qbe $< > $@
 
 .DEFAULT_GOAL := all
 

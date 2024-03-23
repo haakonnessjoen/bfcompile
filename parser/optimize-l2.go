@@ -33,13 +33,99 @@ func isSimpleLoop(tokens []g.ParseToken) (bool, int) {
 			return false, 0
 		}
 
-		// We found a jump, input or output, we cannot optimize this loop
-		if t.Tok.Tok == l.JMPF || t.Tok.Tok == l.IN || t.Tok.Tok == l.OUT {
+		// We found any other operation than add/sub/incp/decp, we cannot optimize this loop
+		if t.Tok.Tok != l.INCP && t.Tok.Tok != l.DECP && t.Tok.Tok != l.ADD && t.Tok.Tok != l.SUB {
 			return false, 0
 		}
 	}
 	// This should not be reached
 	fmt.Fprintln(os.Stderr, "Internal error: isSimpleLoop() reached end of code without finding the end of the loop.")
+	os.Exit(1)
+	return false, 0
+}
+
+// Check if the current loop is used as a if-operation around a another loop
+// This will only optimize away an extra branch instruction and do so in very rare
+// cases since this requires the loop to only multiply with other memory locations,
+// and the loop pointer must be fully cleared during the loop
+func isIfOperation(tokens []g.ParseToken) (bool, int) {
+	p0Nulled := false
+	pointer := 0
+	nonZero := make(map[int]bool)
+
+	D(tokens[0], "Checking if this is a if-operation")
+
+	// We will iterate the tokens starting from the first token of our given slice
+	for i, t := range tokens {
+		// Keep track of the pointer
+		if t.Tok.Tok == l.INCP {
+			pointer += t.Extra
+		} else if t.Tok.Tok == l.DECP {
+			pointer -= t.Extra
+		}
+
+		// we don't know if p[0] is 0
+		if t.Tok.Tok == l.ADD {
+			if pointer == 0 {
+				p0Nulled = false
+			}
+		}
+
+		// we don't know if p[0] is 0
+		if t.Tok.Tok == l.SUB {
+			if pointer == 0 {
+				p0Nulled = false
+			}
+		}
+
+		if t.Tok.Tok == l.MUL {
+			if t.Extra2+pointer == 0 {
+				D(t, "Not an if, because we found a MUL with p[%d+%d] = p[%d] * %d", pointer, t.Extra2, pointer, t.Extra)
+				return false, 0
+			} else {
+				D(t, "Found a MUL with p[%d+%d] = p[%d] * %d", pointer, t.Extra2, pointer, t.Extra)
+				// this is a previously optimized loop, and it is not touching p[0]
+				nonZero[pointer] = true
+			}
+		}
+
+		if t.Tok.Tok == l.MOV {
+			if pointer+t.Extra2 == 0 {
+				if t.Extra == 0 {
+					p0Nulled = true
+				} else {
+					p0Nulled = false
+				}
+			} else {
+				if t.Extra == 0 {
+					D(t, "Cleared p[%d+%d]", pointer, t.Extra2)
+					delete(nonZero, pointer+t.Extra2)
+				}
+			}
+		}
+
+		// We found the end of this loop
+		if t.Tok.Tok == l.JMPB {
+			// If the pointer is back to 0 at this stage and has been cleared during the loop
+			// and we have not operated on other external memory operations, we have a if-operation!
+			if pointer == 0 && p0Nulled && len(nonZero) == 0 {
+				D(tokens[0], "if-operation found")
+				return true, i
+			}
+
+			// The pointer changes during the loop, we cannot optimize this
+			D(t, "Not an if, because current pointer address offset is %d at the end of the loop, or p is not null (%v), or nonZero has elements: %v", pointer, p0Nulled, nonZero)
+			return false, 0
+		}
+
+		// We found a jump, input or output, we cannot optimize this loop
+		if t.Tok.Tok == l.JMPF || t.Tok.Tok == l.IN || t.Tok.Tok == l.OUT {
+			D(t, "Not an if, because we found a %s", t.Tok.TokenName)
+			return false, 0
+		}
+	}
+	// This should not be reached
+	fmt.Fprintln(os.Stderr, "Internal error: isIfOperation() reached end of code without finding the end of the loop.")
 	os.Exit(1)
 	return false, 0
 }
@@ -73,10 +159,10 @@ func findLoopEnd(tokens []g.ParseToken) int {
 	return -1
 }
 
-func setValueAfterLoop(t g.ParseToken, tokens []g.ParseToken) (newToken *g.ParseToken, lastOpWasLoop bool, insts int) {
+func setValueAfterLoop(t g.ParseToken, tokens []g.ParseToken) (newToken *g.ParseToken, currentPointerIsZero bool, insts int) {
 	value := 0
 	insts = 0
-	lastOpWasLoop = true
+	currentPointerIsZero = true
 
 	if Peek(&tokens, 1).Tok.Tok == l.ADD {
 		value = Peek(&tokens, 1).Extra
@@ -87,25 +173,18 @@ func setValueAfterLoop(t g.ParseToken, tokens []g.ParseToken) (newToken *g.Parse
 		D(t, "SLO: Pushing a MOV with %d, 0 to set final value of mem[p]", value)
 		insts++
 	} else {
-		D(t, "SLO: No ADD/SUB found, pushing a MUL with -1, 0 to just empty the current mem[p]")
+		D(t, "SLO: No ADD/SUB found, pushing a MOV 0, 0 to just empty the current mem[p]")
+		value = 0
 	}
 
-	if value > 0 {
-		newToken = &g.ParseToken{
-			Pos:    tokens[1].Pos,
-			Tok:    l.Token{Tok: l.MOV, TokenName: "MOV", Character: ""},
-			Extra:  value,
-			Extra2: 0,
-		}
-		lastOpWasLoop = false
-	} else {
-		newToken = &g.ParseToken{
-			Pos:    tokens[0].Pos,
-			Tok:    l.Token{Tok: l.MUL, TokenName: "MUL", Character: ""},
-			Extra:  -1,
-			Extra2: 0,
-		}
-		lastOpWasLoop = false
+	newToken = &g.ParseToken{
+		Pos:    tokens[1].Pos,
+		Tok:    l.Token{Tok: l.MOV, TokenName: "MOV", Character: ""},
+		Extra:  value,
+		Extra2: 0,
+	}
+	if value != 0 {
+		currentPointerIsZero = false
 	}
 
 	return
@@ -116,7 +195,7 @@ func setValueAfterLoop(t g.ParseToken, tokens []g.ParseToken) (newToken *g.Parse
 func Optimize2(tokens []g.ParseToken, generator string) []g.ParseToken {
 	newTokens := make([]g.ParseToken, 0, len(tokens))
 	// We know that the first byte is 0
-	lastOpWasLoop := true
+	currentPointerIsZero := true
 mainloop:
 	for i := 0; i < len(tokens); i++ {
 		t := tokens[i]
@@ -125,14 +204,14 @@ mainloop:
 		if token == l.JMPF {
 			// If a loop start immediately after another one, it will never be entered.
 			// So we can remove it and everything it contains.
-			if lastOpWasLoop {
+			if currentPointerIsZero {
 				// Find next JMPB on the same scope
 				insts := findLoopEnd(tokens[i+1:])
 				if insts == -1 {
 					fmt.Fprintf(os.Stderr, "Parse error: Unterminated loop at %d:%d", t.Pos.Line, t.Pos.Column)
 				}
-				// Skip over loop, and let "lastOpWasLoop" be true
-				// as this also was a loop.
+				// Skip over loop, and let "currentPointerIsZero" be true
+				// as this *p now is 0
 				D(t, "Skipping entire loop, since we know mem[p] is 0")
 				i += insts + 1
 				continue
@@ -142,13 +221,13 @@ mainloop:
 				D(t, "Aborting, putting JMPF back")
 				// Special case, a loop with no operation, cannot optimize as we cannot divide by 0.
 				newTokens = append(newTokens, t)
-				lastOpWasLoop = false
+				currentPointerIsZero = false
 				continue
 			}
 
 			// Found this idea here: http://calmerthanyouare.org/2015/01/07/optimizing-brainfuck.html
 			// C stdlib has memchr() to go through data fast, (but seems like memrchr() is only in gnu stdlib)
-			if generator == "c" {
+			if generator == "dc" {
 				if Peek(&tokens, i+2).Tok.Tok == l.JMPB && (Peek(&tokens, i+1).Tok.Tok == l.INCP || Peek(&tokens, i+1).Tok.Tok == l.DECP) && Peek(&tokens, i+1).Extra == 1 {
 					D(t, "C optimization, found a simple scanloop")
 					if Peek(&tokens, i+1).Tok.Tok == l.INCP {
@@ -163,7 +242,7 @@ mainloop:
 							})
 						}*/
 						i += 2
-						lastOpWasLoop = true
+						currentPointerIsZero = true
 						continue
 					}
 				}
@@ -175,7 +254,7 @@ mainloop:
 						Tok: l.Token{Tok: l.PRNT, TokenName: "PRNT", Character: ""},
 					})
 					i += 3
-					lastOpWasLoop = true
+					currentPointerIsZero = true
 					continue
 				}
 			}
@@ -200,7 +279,7 @@ mainloop:
 					insts += instsadd
 
 					if !isStilLoop {
-						lastOpWasLoop = false
+						currentPointerIsZero = false
 					}
 
 					i += insts + 1
@@ -223,7 +302,7 @@ mainloop:
 						// At the moment, we don't handle loops that counts upwards
 						// We abort this optimization and just add the tokens as they are
 						newTokens = append(newTokens, t)
-						lastOpWasLoop = false
+						currentPointerIsZero = false
 						continue mainloop
 					} else if pointer == 0 && ttoken == l.SUB {
 						// Count the number of decrements of p[0]
@@ -306,7 +385,7 @@ mainloop:
 				newTok, isStilLoop, instsadd := setValueAfterLoop(t, tokens[i+insts+1:])
 
 				if !isStilLoop {
-					lastOpWasLoop = false
+					currentPointerIsZero = false
 				}
 
 				// Add back a label to handle the case where the value was zero before the loop
@@ -326,11 +405,41 @@ mainloop:
 				i += insts + 1
 				continue
 			}
-			lastOpWasLoop = false
+			isIf, insts := isIfOperation(tokens[i+1:])
+			if isIf {
+				newTokens = append(newTokens, g.ParseToken{
+					Pos:   t.Pos,
+					Tok:   l.Token{Tok: l.BZ, TokenName: "BZ", Character: ""},
+					Extra: t.Extra, // We re-use the jump label
+				})
+
+				for j := i + 1; j < i+1+insts; j++ {
+					tt := tokens[j]
+					ttoken := tt.Tok.Tok
+					if ttoken == l.JMPB {
+						newTokens = append(newTokens, g.ParseToken{
+							Pos:   tt.Pos,
+							Tok:   l.Token{Tok: l.LBL, TokenName: "LBL", Character: ""},
+							Extra: tt.Extra, // We re-use the jump label
+						})
+						i++
+						break
+					}
+
+					newTokens = append(newTokens, tt)
+					i++
+				}
+
+				// We found a if-operation that we can optimize away by using multiplication instead
+				D(t, "Found a if-operation")
+				continue
+			}
+
+			currentPointerIsZero = false
 		} else if token == l.JMPB {
-			lastOpWasLoop = true
+			currentPointerIsZero = true
 		} else {
-			lastOpWasLoop = false
+			currentPointerIsZero = false
 		}
 
 		newTokens = append(newTokens, t)

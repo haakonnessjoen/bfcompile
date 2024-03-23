@@ -8,13 +8,27 @@ import (
 	"os"
 )
 
+var PrintWarnings = true
+
 type Jump struct {
 	From int
 	To   int
 }
 
-func InterpretTokens(tokens []g.ParseToken, memorySize int, in bfutils.FileOrMemReader, out bfutils.FileOrMemWriter) {
-	mem := make([]byte, memorySize)
+func InterpretTokens(tokens []g.ParseToken, memorySize int, in bfutils.FileOrMemReader, out bfutils.FileOrMemWriter, wordSize int) {
+	if wordSize == 8 {
+		interpretTokensOfSize[uint8](tokens, memorySize, in, out)
+	} else if wordSize == 16 {
+		interpretTokensOfSize[uint16](tokens, memorySize, in, out)
+	} else if wordSize == 32 {
+		interpretTokensOfSize[uint32](tokens, memorySize, in, out)
+	} else {
+		fmt.Fprintf(os.Stderr, "Error: Unknown word size %d\n", wordSize)
+	}
+}
+
+func interpretTokensOfSize[S uint8 | uint16 | uint32](tokens []g.ParseToken, memorySize int, in bfutils.FileOrMemReader, out bfutils.FileOrMemWriter) {
+	mem := make([]S, memorySize)
 	jumpLabels := make(map[int]Jump)
 
 	// Compile jump-table
@@ -32,7 +46,9 @@ func InterpretTokens(tokens []g.ParseToken, memorySize int, in bfutils.FileOrMem
 			}
 		case l.JMPB:
 			if (jumpLabels[jumplabel] == Jump{}) {
-				fmt.Fprintln(os.Stderr, "Warning: Unmatched jump label!")
+				if PrintWarnings {
+					fmt.Fprintln(os.Stderr, "Warning: Unmatched jump label!")
+				}
 				jumpLabels[jumplabel] = Jump{From: 0, To: i}
 			} else {
 				jumpLabels[jumplabel] = Jump{From: jumpLabels[jumplabel].From, To: i}
@@ -56,9 +72,9 @@ func InterpretTokens(tokens []g.ParseToken, memorySize int, in bfutils.FileOrMem
 
 		switch token {
 		case l.ADD:
-			mem[p] += byte(value)
+			mem[p] += S(value)
 		case l.SUB:
-			mem[p] -= byte(value)
+			mem[p] -= S(value)
 		case l.INCP:
 			p += value
 		case l.DECP:
@@ -66,7 +82,8 @@ func InterpretTokens(tokens []g.ParseToken, memorySize int, in bfutils.FileOrMem
 		case l.OUT:
 			//fmt.Fprintf(os.Stderr, "Output: %c %d\n", mem[p], mem[p])
 			for j := 0; j < value; j++ {
-				out.Write(mem[p : p+1])
+				v := []byte{byte(mem[p])}
+				out.Write(v)
 			}
 			out.Flush()
 		case l.IN:
@@ -76,7 +93,7 @@ func InterpretTokens(tokens []g.ParseToken, memorySize int, in bfutils.FileOrMem
 				if err != nil || len == 0 {
 					// Leave input as is, which a lot of programs expect
 				} else {
-					mem[p] = v[0]
+					mem[p] = S(v[0])
 				}
 			}
 		case l.JMPF:
@@ -90,14 +107,9 @@ func InterpretTokens(tokens []g.ParseToken, memorySize int, in bfutils.FileOrMem
 				continue
 			}
 		case l.MUL:
-			if value == -1 && pointer == 0 {
-				mem[p] = 0
-				continue
-			}
-
-			mem[p+pointer] += mem[p] * byte(value)
+			mem[p+pointer] += mem[p] * S(value)
 		case l.DIV:
-			mem[p+pointer] /= byte(value)
+			mem[p+pointer] /= S(value)
 
 		case l.BZ:
 			if mem[p] == 0 {
@@ -108,7 +120,7 @@ func InterpretTokens(tokens []g.ParseToken, memorySize int, in bfutils.FileOrMem
 			continue
 
 		case l.MOV:
-			mem[p+pointer] = byte(value)
+			mem[p+pointer] = S(value)
 
 		default:
 			fmt.Fprintf(os.Stderr, "Warning: Unrecognized token: %v!\n", t.Tok.TokenName)

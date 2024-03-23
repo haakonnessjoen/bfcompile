@@ -12,8 +12,7 @@ async function output(v) {
 async function main() {
 	const mem = new Uint8Array(30000);
 	let p = 0;
-	mem[p]++;
-	mem[p] += 9;
+	mem[p] += 10;
 	while (mem[p]) {
 		p++;
 		mem[p] += 7;
@@ -57,8 +56,6 @@ async function main() {
 	await output(mem[p]);
 	p++;
 	await output(mem[p]);
-	mem[p] += 2;
-	mem[p] -= 2;
 	process.stdin.unref();
 }
 main()

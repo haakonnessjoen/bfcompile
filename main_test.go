@@ -16,6 +16,11 @@ import (
 	"github.com/google/uuid"
 )
 
+func init() {
+	g.PrintWarnings = false
+	i.PrintWarnings = false
+}
+
 func wantOutput(test string) []byte {
 	content, err := os.ReadFile(fmt.Sprintf("testdata/%s_out.txt", test))
 	if err != nil {
@@ -39,7 +44,7 @@ func tempFile() TempFile {
 func getInterpretedOutput(tokens []g.ParseToken, input []byte) []byte {
 	in := bytes.NewReader(input)
 	out := bytes.NewBuffer([]byte{})
-	i.InterpretTokens(tokens, 30000, in, bfutils.WrapBuffer(out))
+	i.InterpretTokens(tokens, 30000, in, bfutils.WrapBuffer(out), 8)
 
 	return out.Bytes()
 }
@@ -168,6 +173,7 @@ func TestComplicatedCodeTictactoeOptimize2(t *testing.T) {
 
 	tokens = p.Optimize(tokens)
 	tokens = p.Optimize2(tokens, "")
+	tokens = p.Optimize2(tokens, "")
 
 	got := getInterpretedOutput(tokens, []byte("5\n8\n3\n4\n"))
 	want := wantOutput("tictactoe")
@@ -179,9 +185,17 @@ func TestComplicatedCodeTictactoeOptimize2(t *testing.T) {
 
 func TestJSL1Optimized(t *testing.T) {
 	tokens := p.ParseFile("testdata/test04.bf")
-	tokens = p.Optimize(tokens)
+
+	for {
+		newtokens := p.Optimize(tokens)
+		if len(newtokens) == len(tokens) {
+			break
+		}
+		tokens = newtokens
+	}
+
 	f := g.NewGeneratorOutputString()
-	g.PrintJS(f, tokens, false, 30000)
+	g.PrintJS(f, tokens, false, 30000, 8)
 
 	got := f.GetOutput()
 	want := wantOutput("test04")
@@ -193,10 +207,11 @@ func TestJSL1Optimized(t *testing.T) {
 
 func TestJSL2Optimized(t *testing.T) {
 	tokens := p.ParseFile("testdata/test05.bf")
+
 	tokens = p.Optimize(tokens)
 	tokens = p.Optimize2(tokens, "js")
 	f := g.NewGeneratorOutputString()
-	g.PrintJS(f, tokens, false, 30000)
+	g.PrintJS(f, tokens, false, 30000, 8)
 
 	got := f.GetOutput()
 	want := wantOutput("test05")

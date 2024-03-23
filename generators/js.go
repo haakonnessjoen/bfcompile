@@ -9,13 +9,23 @@ import (
 )
 
 // PrintJS prints the tokens as node.js code
-func PrintJS(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memorySize int) {
+func PrintJS(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memorySize int, wordSize int) {
 	hasInput := false
 	for _, t := range tokens {
 		if t.Tok.Tok == l.IN {
 			hasInput = true
 			break
 		}
+	}
+
+	var arrayType string
+	switch wordSize {
+	case 8:
+		arrayType = "Uint8Array"
+	case 16:
+		arrayType = "Uint16Array"
+	case 32:
+		arrayType = "Uint32Array"
 	}
 
 	f.Println(`const process = require("process");`)
@@ -58,9 +68,9 @@ process.stdin.on("data", (data) => {
 }
 
 async function main() {
-	const mem = new Uint8Array(%d);
+	const mem = new %s(%d);
 	let p = 0;
-`, memorySize)
+`, arrayType, memorySize)
 
 	indentLevel := 1
 	for _, t := range tokens {
@@ -112,11 +122,6 @@ async function main() {
 			indentLevel--
 			f.Printf("%s}\n", indent(indentLevel))
 		case l.MUL:
-			if t.Extra == -1 && t.Extra2 == 0 {
-				f.Printf("%smem[p] = 0;\n", indent(indentLevel))
-				continue
-			}
-
 			prefix := ""
 			if t.Extra2 >= 0 {
 				prefix = "+"
@@ -155,7 +160,9 @@ async function main() {
 		}
 	}
 	if indentLevel > 1 {
-		fmt.Fprintf(os.Stderr, "Warning: Unbalanced brackets in code\n")
+		if PrintWarnings {
+			fmt.Fprintf(os.Stderr, "Warning: Unbalanced brackets in code\n")
+		}
 		for indentLevel > 1 {
 			indentLevel--
 			f.Printf("%s}\n", indent(indentLevel))
