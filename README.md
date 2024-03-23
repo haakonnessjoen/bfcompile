@@ -26,6 +26,8 @@ If you enable optimization, it optimizes the token tree (or array really) before
 
 - For C output, there are a few extra optimalizations, one where `[>]` will use stdlib call memchr() which on some standard libraries are optimized to check 4 bytes at a time. And a second one, that converts `[.>]` to `p += fputs(p, stdout)` as it will both increase the pointer, and let the standard library ouput the string the most optimal way. These optimizations are probably not very noticable in most brainfuck programs though.
 
+- If a loop variable is cleared before the loop ends, convert it to a if statement instead. (This will also handle loops that contains ex-loops that has been converted to multiplications)
+
 Fun fact: It can also output Brainfuck, so you can use it to optimize your brainfuck (only level 1). For example output from this ["C" to bf compiler](https://github.com/elikaski/BF-it) can often be optimized quite a bit, as it does a lot of operations that would cancel eachother out.
 
 ## Prerequisites

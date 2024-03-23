@@ -45,13 +45,11 @@ func isSimpleLoop(tokens []g.ParseToken) (bool, int) {
 }
 
 // Check if the current loop is used as a if-operation around a another loop
-// This will only optimize away an extra branch instruction and do so in very rare
-// cases since this requires the loop to only multiply with other memory locations,
-// and the loop pointer must be fully cleared during the loop
+// This will only optimize away an extra branch jump and do so in very rare
+// cases where the loop variable is cleared inside the loop.
 func isIfOperation(tokens []g.ParseToken) (bool, int) {
 	p0Nulled := false
 	pointer := 0
-	nonZero := make(map[int]bool)
 
 	D(tokens[0], "Checking if this is a if-operation")
 
@@ -64,28 +62,9 @@ func isIfOperation(tokens []g.ParseToken) (bool, int) {
 			pointer -= t.Extra
 		}
 
-		// we don't know if p[0] is 0
-		if t.Tok.Tok == l.ADD {
+		if t.Tok.Tok == l.ADD || t.Tok.Tok == l.SUB {
 			if pointer == 0 {
 				p0Nulled = false
-			}
-		}
-
-		// we don't know if p[0] is 0
-		if t.Tok.Tok == l.SUB {
-			if pointer == 0 {
-				p0Nulled = false
-			}
-		}
-
-		if t.Tok.Tok == l.MUL {
-			if t.Extra2+pointer == 0 {
-				D(t, "Not an if, because we found a MUL with p[%d+%d] = p[%d] * %d", pointer, t.Extra2, pointer, t.Extra)
-				return false, 0
-			} else {
-				D(t, "Found a MUL with p[%d+%d] = p[%d] * %d", pointer, t.Extra2, pointer, t.Extra)
-				// this is a previously optimized loop, and it is not touching p[0]
-				nonZero[pointer] = true
 			}
 		}
 
@@ -96,11 +75,6 @@ func isIfOperation(tokens []g.ParseToken) (bool, int) {
 				} else {
 					p0Nulled = false
 				}
-			} else {
-				if t.Extra == 0 {
-					D(t, "Cleared p[%d+%d]", pointer, t.Extra2)
-					delete(nonZero, pointer+t.Extra2)
-				}
 			}
 		}
 
@@ -108,13 +82,13 @@ func isIfOperation(tokens []g.ParseToken) (bool, int) {
 		if t.Tok.Tok == l.JMPB {
 			// If the pointer is back to 0 at this stage and has been cleared during the loop
 			// and we have not operated on other external memory operations, we have a if-operation!
-			if pointer == 0 && p0Nulled && len(nonZero) == 0 {
+			if pointer == 0 && p0Nulled {
 				D(tokens[0], "if-operation found")
 				return true, i
 			}
 
 			// The pointer changes during the loop, we cannot optimize this
-			D(t, "Not an if, because current pointer address offset is %d at the end of the loop, or p is not null (%v), or nonZero has elements: %v", pointer, p0Nulled, nonZero)
+			D(t, "Not an if, because current pointer address offset is %d at the end of the loop, or p is not nulled (%v)", pointer, p0Nulled)
 			return false, 0
 		}
 
