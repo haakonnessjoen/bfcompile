@@ -22,10 +22,16 @@ var (
 	optOutput     string
 )
 
+const PACKAGE_NAME = "bfcompile"
+const PACKAGE_VERSION = "1.0.0"
+
 func main() {
+	bfutils.Globals.Set("PACKAGE_NAME", PACKAGE_NAME)
+	bfutils.Globals.Set("PACKAGE_VERSION", PACKAGE_VERSION)
+
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	// parse command line arguments
-	flag.StringVar(&optGenerator, "g", "qbe", "Code generator to use: tokens, qbe, c, js or bf")
+	flag.StringVar(&optGenerator, "g", "qbe", "Code generator to use: tokens, llvm, qbe, c, js or bf")
 	flag.BoolVar(&optInterpret, "i", false, "Interpret the code instead of generating code. This will ignore the -g option.")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
@@ -59,7 +65,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "js" && optGenerator != "bf" && optGenerator != "tokens" {
+	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "js" && optGenerator != "bf" && optGenerator != "tokens" && optGenerator != "llvm" {
 		fmt.Fprintf(os.Stderr, "Error: Unknown generator %s\n\n", optGenerator)
 		flag.Usage()
 		os.Exit(1)
@@ -118,6 +124,8 @@ func main() {
 		defer output.Close()
 
 		switch optGenerator {
+		case "llvm":
+			g.PrintIR(output, tokens, optComments, optMemorySize, optWordSize)
 		case "qbe":
 			g.PrintIL(output, tokens, optComments, optMemorySize, optWordSize)
 		case "c":
