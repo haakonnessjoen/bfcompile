@@ -29,7 +29,7 @@ func PrintC(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memor
 
 	f.Printf("%s mem[%d];\n", wordType, memorySize)
 	f.Println("int main() {")
-	f.Printf("	%s *p = mem;", wordType)
+	f.Printf("	%s *p = mem;\n", wordType)
 
 	indentLevel := 1
 	for _, t := range tokens {

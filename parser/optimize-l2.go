@@ -151,8 +151,12 @@ func setValueAfterLoop(t g.ParseToken, tokens []g.ParseToken) (newToken *g.Parse
 		value = 0
 	}
 
+	pos := tokens[0].Pos
+	if len(tokens) > 1 {
+		pos = tokens[1].Pos
+	}
 	newToken = &g.ParseToken{
-		Pos:    tokens[1].Pos,
+		Pos:    pos,
 		Tok:    l.Token{Tok: l.MOV, TokenName: "MOV", Character: ""},
 		Extra:  value,
 		Extra2: 0,

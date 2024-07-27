@@ -16,6 +16,7 @@ var (
 	optInterpret  bool
 	optOptimize   bool
 	optDebug      bool
+	optDebugSymbols bool
 	optComments   bool
 	optWordSize   int
 	optMemorySize int
@@ -35,7 +36,8 @@ func main() {
 	flag.BoolVar(&optInterpret, "i", false, "Interpret the code instead of generating code. This will ignore the -g option.")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
-	flag.BoolVar(&optDebug, "d", false, "Enable debug output from optimizer")
+	flag.BoolVar(&optDebug, "d", false, "Enable verbose output from optimizer")
+	flag.BoolVar(&optDebugSymbols, "lg", false, "Enable LLVM debug symbols generation")
 	flag.IntVar(&optWordSize, "w", 8, "Cell size (8, 16 or 32)")
 	flag.IntVar(&optMemorySize, "m", 30000, "Memory size available to brainfuck in the generated code")
 	flag.StringVar(&optOutput, "out", "", "Set a filename to output to instead of outputting to STDOUT.")
@@ -71,9 +73,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	if optDebugSymbols && optGenerator != "llvm" {
+		fmt.Fprintf(os.Stderr, "Error: -lg parameter is only relevant with the LLVM IR code generator")
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if optDebugSymbols {
+		bfutils.Globals.Set("LLVM_DEBUG", "true")
+	} else {
+		bfutils.Globals.Set("LLVM_DEBUG", "false")
+	}
+
 	if optDebug {
 		p.Debug = true
 	}
+
+	bfutils.Globals.Set("INPUT_FILENAME", flag.Args()[0])
 
 	tokens := p.ParseFile(flag.Args()[0])
 	initialCount := len(tokens)

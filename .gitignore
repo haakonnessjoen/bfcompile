@@ -3,3 +3,4 @@ hello
 bfcompile
 *.ssa
 *.s
+.DS_Store
