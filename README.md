@@ -8,7 +8,15 @@ If you output LLVM IR and compile your binaries with clang, you can use the `lld
 
 The initial idea came when I saw the Youtuber [tsoding](https://www.youtube.com/watch?v=JTjNoejn4iA) try out QBE, and the language looked very simple, so I thought it should be simple to use it to compile brainfuck. And then later I found out that LLVM IR isn't that hard either, to do basic stuff.
 
-## Features
+## Output formats
+
+* LLVM Intermediate Representation
+* QBE Intermediate Language
+* C
+* Javascript (Node.js flavored)
+* Brainfuck
+
+## Optimizations
 
 If you enable optimization, it optimizes the token stream before it generates code with the following optimalizations, output is explained with C for readability:
 
@@ -36,15 +44,15 @@ Fun fact: It can also output Brainfuck, so you can use it to optimize your brain
 
 ## Known limitations
 
-Some of the second level optimizations expect you not to use negative overflow in multiplication, like this example: `--[------->++<]>.`, this should normally give you 36, but if you enable the optimizer, it will result in 72, because it starts up trying to divide 254 by 7, which isn't integer divisable. I have tested a lot of brainfuck code written by other people or compilers, and I seldom see this, but I found this issue with a ["text-to-bf"](https://copy.sh/brainfuck/text.html) script that tries to optimize it's output by utilizing higher numbers by going below 0.
+* Some of the second level optimizations expect you not to use negative overflow in multiplication, like this example: `--[------->++<]>.`, this should normally give you 36, but if you enable the optimizer, it will result in 72, because the optimizer starts up trying to divide 254 by 7, which isn't integer divisable. I have tested a lot of brainfuck code written by other people or compilers, and I seldom see this, but I have so far only found this issue with a ["text-to-bf"](https://copy.sh/brainfuck/text.html) script that tries to optimize it's output by utilizing higher numbers by going below 0.
 
-Instead of learning the depths of LLVM IR, I have used the output of clang to help me on my way, by using defaults found in the output of those files. This means that the output of the LLVM IR generator, is probably highly dependant on compiling for mac, and might not work for other architectures etc, since, even if LLVM IR is architecture agnostic, it has a lot of features you can enable if you know you are outputting to a specific architecture. But maybe I will do more work on this later. At the current time, this project is more of a proof of concept and R&D.
+* Instead of learning the depths of LLVM IR, I have used the output of clang to help me on my way, by using defaults found in the output of those files. This means that the output of the LLVM IR generator, is probably highly dependant on compiling for mac, and might not work for other architectures etc, since, even if LLVM IR is architecture agnostic, it has a lot of features you can enable if you know you are outputting to a specific architecture. But maybe I will do more work on this later. At the current time, this project is more of a proof of concept and R&D.
 
 ## Prerequisites
 
 *LLVM*: If you are using llvm output, you need llvm/clang toolset. Included with XCode on mac.
 
-*QBE*: If you are using qbe output format you need **qbe** to . On mac you can just do `brew install qbe`.
+*QBE*: If you are using qbe output format you need **qbe** to generate assembly code (and llvm to compile). On mac you can just do `brew install qbe`.
 
 # Compilation with LLVM
 
