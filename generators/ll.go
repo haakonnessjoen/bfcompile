@@ -6,26 +6,13 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
-	"strconv"
 )
-
-type LoopEntry int
 
 var DebugSymbols = false
 
 // PrintIR prints the tokens as LLVM Intermediate Representation
 func PrintIR(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memorySize int, wordSize int) {
-	refNum := 0
-	debugInfo := make([]string, 0, 100)
-	debugMap := make(map[string]int)
-	refStack := make([]string, 1, 100)
-	refStack[0] = "main"
-	loopStack := make([]LoopEntry, 0, 100)
-	currentScope := ""
-	currentScopeNum := -1
-	nextJmp := 1
-	jumpMap := make(map[string]int)
+	g := NewGeneratorHelper(f, wordSize)
 
 	filename := u.Globals.Get("INPUT_FILENAME")
 
@@ -33,168 +20,69 @@ func PrintIR(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memo
 		DebugSymbols = true
 	}
 
-	getJumpLbl := func(jumptype string, reference int) int {
-		lbl := fmt.Sprintf("%s%d", jumptype, reference)
-		_, ok := jumpMap[lbl]
-		if !ok {
-			jumpMap[lbl] = nextJmp
-			defer func() {
-				nextJmp++
-			}()
-		}
-		return jumpMap[lbl]
-	}
-
-	addDebug := func(name string, format string, args ...interface{}) int {
-		if name != "" {
-			debugMap[name] = refNum
-		}
-		prefix := fmt.Sprintf("!%d = ", refNum)
-		debugInfo = append(debugInfo, prefix+fmt.Sprintf(format, args...))
-		refNum++
-		return refNum - 1
-	}
-
-	// For forward references
-	debugRefPh := func(name string) string {
-		return fmt.Sprintf("$${REPLACE_%s}", name)
-	}
-
-	debugRef := func(name string) (ref int) {
-		var ok bool
-		ref, ok = debugMap[name]
-		if !ok {
-			ref = -1
-		}
-		return ref
-	}
-
-	pushRef := func(ref string) {
-		refStack = append(refStack, ref)
-		currentScope = ref
-		currentScopeNum = debugRef(ref)
-	}
-
-	popRef := func() string {
-		if len(refStack) > 1 {
-			refStack = refStack[:len(refStack)-1]
-		}
-		currentScope = refStack[len(refStack)-1]
-		currentScopeNum = debugRef(currentScope)
-		return currentScope
-	}
-
-	addLine := func(line, column int) (ref string) {
-		if !DebugSymbols {
-			return
-		}
-		ref = fmt.Sprintf("L%d_%d", line, column)
-		addDebug(ref, "!DILocation(line: %d, column: %d, scope: !%d)", line, column, currentScopeNum)
-		return
-	}
-
-	addBlock := func(line, column int) (ref string) {
-		if !DebugSymbols {
-			return
-		}
-		ref = fmt.Sprintf("B%d_%d", line, column)
-		addDebug(ref, "distinct !DILexicalBlock(scope: !%d, file: !%s, line: %d, column: %d)",
-			currentScopeNum, debugRefPh("bf_file"), line, column,
-		)
-		pushRef(ref)
-		return
-	}
-
-	endBlock := func() {
-		if !DebugSymbols {
-			return
-		}
-		popRef()
-	}
-
 	f.Printf("; ModuleID = '%s'\n", filename)
 	f.Printf("source_filename = \"%s\"\n\n", filename)
 
-	pushRef("main")
+	g.pushRef("main")
 
 	if DebugSymbols {
-		addDebug("l0", "!DIGlobalVariableExpression(var: !%s, expr: !DIExpression())", debugRefPh("@mem"))
-		addDebug("@mem", "distinct !DIGlobalVariable(name: \"mem\", scope: !%s, file: !%s, line: 0, type: !%s, isLocal: false, isDefinition: true)",
-			debugRefPh("scope"), debugRefPh("bf_file"), debugRefPh("memtype"),
+		g.addDebug("l0", "!DIGlobalVariableExpression(var: !%s, expr: !DIExpression())", g.debugRefPh("@mem"))
+		g.addDebug("@mem", "distinct !DIGlobalVariable(name: \"mem\", scope: !%s, file: !%s, line: 0, type: !%s, isLocal: false, isDefinition: true)",
+			g.debugRefPh("scope"), g.debugRefPh("bf_file"), g.debugRefPh("memtype"),
 		)
-		addDebug("scope", "distinct !DICompileUnit(language: DW_LANG_C, file: !%s, producer: \"%s %s\", isOptimized: %v, runtimeVersion: 0, emissionKind: FullDebug, globals: !%s, splitDebugInlining: false, nameTableKind: None)",
-			debugRefPh("bf_file"), u.Globals.Get("PACKAGE_NAME"), u.Globals.Get("PACKAGE_VERSION"), false, debugRefPh("globals"),
+		g.addDebug("scope", "distinct !DICompileUnit(language: DW_LANG_C, file: !%s, producer: \"%s %s\", isOptimized: %v, runtimeVersion: 0, emissionKind: FullDebug, globals: !%s, splitDebugInlining: false, nameTableKind: None)",
+			g.debugRefPh("bf_file"), u.Globals.Get("PACKAGE_NAME"), u.Globals.Get("PACKAGE_VERSION"), false, g.debugRefPh("globals"),
 		)
-		addDebug("bf_file", "!DIFile(filename: \"%s\", directory: \"%s\")",
+		g.addDebug("bf_file", "!DIFile(filename: \"%s\", directory: \"%s\")",
 			filename, os.Getenv("PWD"),
 		)
-		addDebug("globals", "!{!%s}", debugRefPh("l0"))
-		addDebug("memtype", "!DICompositeType(tag: DW_TAG_array_type, baseType: !%s, size: %d, elements: !%s)", debugRefPh("uinttype"), memorySize*wordSize, debugRefPh("elements"))
-		addDebug("uinttype", "!DIDerivedType(tag: DW_TAG_typedef, name: \"uint%d\", file: !%d, line: 1, baseType: !%s)", wordSize, debugRef("bf_file"), debugRefPh("baseuinttype"))
-		addDebug("baseuinttype", "!DIBasicType(name: \"unsigned char\", size: %d, encoding: DW_ATE_unsigned_char)", wordSize)
-		addDebug("elements", "!{!%s}", debugRefPh("elementscount"))
-		addDebug("elementscount", "!DISubrange(count: %d)", memorySize)
+		g.addDebug("globals", "!{!%s}", g.debugRefPh("l0"))
+		g.addDebug("memtype", "!DICompositeType(tag: DW_TAG_array_type, baseType: !%s, size: %d, elements: !%s)", g.debugRefPh("uinttype"), memorySize*wordSize, g.debugRefPh("elements"))
+		g.addDebug("uinttype", "!DIDerivedType(tag: DW_TAG_typedef, name: \"uint%d\", file: !%d, line: 1, baseType: !%s)", wordSize, g.debugRef("bf_file"), g.debugRefPh("baseuinttype"))
+		g.addDebug("baseuinttype", "!DIBasicType(name: \"unsigned char\", size: %d, encoding: DW_ATE_unsigned_char)", wordSize)
+		g.addDebug("elements", "!{!%s}", g.debugRefPh("elementscount"))
+		g.addDebug("elementscount", "!DISubrange(count: %d)", memorySize)
 	}
 
-	addDebug("flag1", "!{i32 7, !\"Dwarf Version\", i32 4}")
-	addDebug("flag2", "!{i32 2, !\"Debug Info Version\", i32 3}")
-	addDebug("flag3", "!{i32 1, !\"wchar_size\", i32 4}")
-	addDebug("flag4", "!{i32 8, !\"PIC Level\", i32 2}")
-	addDebug("flag5", "!{i32 7, !\"uwtable\", i32 1}")
-	addDebug("flag6", "!{i32 7, !\"frame-pointer\", i32 1}")
-	addDebug("ident", "!{!\"%s %s\"}", u.Globals.Get("PACKAGE_NAME"), u.Globals.Get("PACKAGE_VERSION"))
+	g.addDebug("flag1", "!{i32 7, !\"Dwarf Version\", i32 4}")
+	g.addDebug("flag2", "!{i32 2, !\"Debug Info Version\", i32 3}")
+	g.addDebug("flag3", "!{i32 1, !\"wchar_size\", i32 4}")
+	g.addDebug("flag4", "!{i32 8, !\"PIC Level\", i32 2}")
+	g.addDebug("flag5", "!{i32 7, !\"uwtable\", i32 1}")
+	g.addDebug("flag6", "!{i32 7, !\"frame-pointer\", i32 1}")
+	g.addDebug("ident", "!{!\"%s %s\"}", u.Globals.Get("PACKAGE_NAME"), u.Globals.Get("PACKAGE_VERSION"))
 
 	if DebugSymbols {
-		addDebug("main", "distinct !DISubprogram(name: \"main\", scope: !%s, file: !%s, line: 1, type: !%s, scopeLine: 1, spFlags: DISPFlagDefinition, unit: !%s, retainedNodes: !%s)",
-			debugRefPh("bf_file"), debugRefPh("bf_file"), debugRefPh("int32type"), debugRefPh("scope"), debugRefPh("retainedNodes"),
+		g.addDebug("main", "distinct !DISubprogram(name: \"main\", scope: !%s, file: !%s, line: 1, type: !%s, scopeLine: 1, spFlags: DISPFlagDefinition, unit: !%s, retainedNodes: !%s)",
+			g.debugRefPh("bf_file"), g.debugRefPh("bf_file"), g.debugRefPh("int32type"), g.debugRefPh("scope"), g.debugRefPh("retainedNodes"),
 		)
 
-		if currentScope == "main" {
-			currentScopeNum = debugRef("main")
+		if g.currentScope == "main" {
+			g.currentScopeNum = g.debugRef("main")
 		}
-		addDebug("int32type", "!DISubroutineType(types: !%s)", debugRefPh("int32typeref"))
-		addDebug("int32typeref", "!{!%s}", debugRefPh("int32typedef"))
-		addDebug("int32typedef", "!DIBasicType(name: \"int\", size: 32, encoding: DW_ATE_signed)")
-		addDebug("retainedNodes", "!{}")
+		g.addDebug("int32type", "!DISubroutineType(types: !%s)", g.debugRefPh("int32typeref"))
+		g.addDebug("int32typeref", "!{!%s}", g.debugRefPh("int32typedef"))
+		g.addDebug("int32typedef", "!DIBasicType(name: \"int\", size: 32, encoding: DW_ATE_signed)")
+		g.addDebug("retainedNodes", "!{}")
 
-		addDebug("pvar", "!DILocalVariable(name: \"p\", scope: !%s, file: !%s, line: 1, type: !%s)", debugRefPh("main"), debugRefPh("bf_file"), debugRefPh("mempointertype"))
-		addDebug("mempointertype", "!DIDerivedType(tag: DW_TAG_pointer_type, baseType: !%s, size: 64)", debugRefPh("uinttype"))
+		g.addDebug("pvar", "!DILocalVariable(name: \"p\", scope: !%s, file: !%s, line: 1, type: !%s)", g.debugRefPh("main"), g.debugRefPh("bf_file"), g.debugRefPh("mempointertype"))
+		g.addDebug("mempointertype", "!DIDerivedType(tag: DW_TAG_pointer_type, baseType: !%s, size: 64)", g.debugRefPh("uinttype"))
 	}
 
 	if DebugSymbols {
 		f.Printf("@mem = common global [%d x i%d] zeroinitializer, align 1, !dbg !%d\n\n", memorySize, wordSize, 0)
-		f.Printf("define i32 @main() #0 !dbg !%d {\n", debugRef("main"))
+		f.Printf("define i32 @main() #0 !dbg !%d {\n", g.debugRef("main"))
 	} else {
 		f.Printf("@mem = common global [%d x i%d] zeroinitializer, align 1\n\n", memorySize, wordSize)
 		f.Println("define i32 @main() #0 {")
 	}
 
-	f.Println("  %v = alloca i8, align 1")
 	f.Println("  %p = alloca ptr, align 8")
-	f.Println("  store i32 0, ptr %v, align 1")
 	if DebugSymbols {
-		f.Printf("  call void @llvm.dbg.declare(metadata ptr %%p, metadata !%d, metadata !DIExpression()), !dbg !%d\n", debugRef("pvar"), refNum+1)
-		f.Printf("  store ptr @mem, ptr %%p, align 8, !dbg !%d\n", refNum+1)
+		f.Printf("  call void @llvm.dbg.declare(metadata ptr %%p, metadata !%d, metadata !DIExpression()), !dbg !%d\n", g.debugRef("pvar"), g.refNum+1)
+		f.Printf("  store ptr @mem, ptr %%p, align 8, !dbg !%d\n", g.refNum+1)
 	} else {
 		f.Printf("  store ptr @mem, ptr %%p, align 8\n")
-	}
-    f.Printf("  %%v.val = load i32, ptr %%v, align 4")
-
-	var currentLine string
-	var vNo int = 0
-
-	nextv := func() int {
-		vNo++
-		return vNo
-	}
-
-	printf := func(format string, args ...interface{}) {
-		f.Printf(format, args...)
-		if DebugSymbols {
-			f.Printf(", !dbg !%d\n", debugRef(currentLine))
-		} else {
-			f.Println("")
-		}
 	}
 
 	for _, t := range tokens {
@@ -204,216 +92,225 @@ func PrintIR(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memo
 
 		switch t.Tok.Tok {
 		case l.ADD:
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
-			v1 := nextv()
-			p1 := nextv()
-			v2 := nextv()
-			printf("  %%p.%d = load ptr, ptr %%p, align 8", p1)
-			printf("  %%v.%d = load i%d, ptr %%p.%d, align 1", v1, wordSize, p1)
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
+			v1 := g.nextv()
+			p1 := g.nextv()
+			v2 := g.nextv()
+
+			g.printLoadPtr(p1)
+			g.printLoadValue(v1, p1)
 
 			if t.Extra != 1 {
 				oldv1 := v1
-				v1 = nextv()
-				printf("  %%v.%d = zext i%d %%v.%d to i32", v1, wordSize, oldv1)
-				printf("  %%v.%d = add nsw i32 %%v.%d, %d", v2, v1, t.Extra)
+				v1 = g.nextv()
+				v1 = g.printExtendValue(v1, oldv1)
+				g.printf("  %%v.%d = add nsw i32 %%v.%d, %d", v2, v1, t.Extra)
+				v3 := g.nextv()
+				v3 = g.printTruncValue(v3, v2)
+				g.printStoreValue(v3, p1)
 			} else {
-				printf("  %%v.%d = add nsw i%d %%v.%d, %d", v2, wordSize, v1, t.Extra)
-			}
-
-
-			if t.Extra != 1 {
-				v3 := nextv()
-				printf("  %%v.%d = trunc i32 %%v.%d to i%d", v3, v2, wordSize)
-				printf("  store i%d %%v.%d, ptr %%p.%d, align 1", wordSize, v3, p1)
-			} else {
-				printf("  store i%d %%v.%d, ptr %%p.%d, align 1", wordSize, v2, p1)
+				g.printf("  %%v.%d = add nsw i%d %%v.%d, %d", v2, wordSize, v1, t.Extra)
+				g.printStoreValue(v2, p1)
 			}
 		case l.SUB:
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
-			v1 := nextv()
-			p1 := nextv()
-			printf("  %%p.%d = load ptr, ptr %%p, align 8", p1)
-			printf("  %%v.%d = load i%d, ptr %%p.%d, align 1", v1, wordSize, p1)
-			v2 := nextv()
-			printf("  %%v.%d = add i%d %%v.%d, %d", v2, wordSize, v1, -t.Extra)
-			printf("  store i%d %%v.%d, ptr %%p.%d, align 1", wordSize, v2, p1)
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
+			v1 := g.nextv()
+			p1 := g.nextv()
+			v2 := g.nextv()
+
+			g.printLoadPtr(p1)
+			g.printLoadValue(v1, p1)
+
+			if t.Extra != 1 {
+				oldv1 := v1
+				v1 = g.nextv()
+				v1 = g.printExtendValue(v1, oldv1)
+				g.printf("  %%v.%d = add nsw i32 %%v.%d, %d", v2, v1, -t.Extra)
+				v3 := g.nextv()
+				v3 = g.printTruncValue(v3, v2)
+				g.printStoreValue(v3, p1)
+			} else {
+				g.printf("  %%v.%d = add nsw i%d %%v.%d, %d", v2, wordSize, v1, -t.Extra)
+				g.printStoreValue(v2, p1)
+			}
 		case l.INCP:
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
-			p1 := nextv()
-			p2 := nextv()
-			printf("  %%p.%d = load ptr, ptr %%p, align 8", p1)
-			printf("  %%p.%d = getelementptr inbounds i%d, ptr %%p.%d, i32 %d", p2, wordSize, p1, t.Extra)
-			printf("  store ptr %%p.%d, ptr %%p, align 8", p2)
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
+			p1 := g.nextv()
+			p2 := g.nextv()
+			g.printLoadPtr(p1)
+			g.printf("  %%p.%d = getelementptr inbounds i%d, ptr %%p.%d, i32 %d", p2, wordSize, p1, t.Extra)
+			g.printf("  store ptr %%p.%d, ptr %%p, align 8", p2)
 		case l.DECP:
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
-			p1 := nextv()
-			p2 := nextv()
-			printf("  %%p.%d = load ptr, ptr %%p, align 8", p1)
-			printf("  %%p.%d = getelementptr inbounds i%d, ptr %%p.%d, i32 %d", p2, wordSize, p1, -t.Extra)
-			printf("  store ptr %%p.%d, ptr %%p, align 8", p2)
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
+			p1 := g.nextv()
+			p2 := g.nextv()
+			g.printLoadPtr(p1)
+			g.printf("  %%p.%d = getelementptr inbounds i%d, ptr %%p.%d, i32 %d", p2, wordSize, p1, -t.Extra)
+			g.printf("  store ptr %%p.%d, ptr %%p, align 8", p2)
 		case l.OUT:
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
 			for i := 0; i < t.Extra; i++ {
-				v1 := nextv()
-				p1 := nextv()
-				printf("  %%p.%d = load ptr, ptr %%p, align 8", p1)
-				printf("  %%v.%d = load i%d, ptr %%p.%d, align 1", v1, wordSize, p1)
-				v2 := nextv()
-				printf("  %%v.%d = zext i%d %%v.%d to i32", v2, wordSize, v1)
-				printf("  %%v.%d = call i32 @putchar(i32 noundef %%v.%d)", nextv(), v2)
+				v1 := g.nextv()
+				p1 := g.nextv()
+				v2 := g.nextv()
+				g.printLoadPtr(p1)
+				g.printLoadValue(v1, p1)
+				v2 = g.printExtendValue(v2, v1)
+				g.printf("  %%v.%d = call i32 @putchar(i32 noundef %%v.%d)", g.nextv(), v2)
 			}
 		case l.IN:
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
-			var v2 int
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
+			var v1 int
 			for i := 0; i < t.Extra; i++ {
-				v1 := nextv()
-				printf("  %%v.%d = call i32 @getchar()", v1)
-				v2 = nextv()
-				printf("  %%v.%d = trunc i32 %%v.%d to i%d", v2, v1, wordSize)
+				v1 = g.nextv()
+				g.printf("  %%v.%d = call i32 @getchar()", v1)
 			}
-			p1 := nextv()
-			printf("  %%p.%d = load ptr, ptr %%p, align 8", p1)
-			printf("  store i%d %%v.%d, ptr %%p.%d, align 1", wordSize, v2, p1)
+			v2 := g.nextv()
+			v2 = g.printTruncValue(v2, v1)
+			p1 := g.nextv()
+			g.printLoadPtr(p1)
+			g.printStoreValue(v2, p1)
 		case l.JMPF:
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
-			addBlock(t.Pos.Line, t.Pos.Column)
-			jmplabel := getJumpLbl("f", t.Extra)
-			printf("  br label %%j%d", jmplabel)
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
+			g.addBlock(t.Pos.Line, t.Pos.Column)
+			jmplabel := g.getJumpLbl("f", t.Extra)
+			g.printf("  br label %%j%d", jmplabel)
 			f.Printf("\nj%d:\n", jmplabel)
-			p1 := nextv()
-			v1 := nextv()
-			v2 := nextv()
-			printf("  %%p.%d = load ptr, ptr %%p, align 8", p1)
-			printf("  %%v.%d = load i%d, ptr %%p.%d, align 1", v1, wordSize, p1)
-			printf("  %%v.%d = icmp ne i%d %%v.%d, 0", v2, wordSize, v1)
-			fdlabel := getJumpLbl("fd", t.Extra)
-			bdlabel := getJumpLbl("bd", t.Extra)
-			printf("  br i1 %%v.%d, label %%j%d, label %%j%d", v2, fdlabel, bdlabel)
+
+			p1 := g.nextv()
+			v1 := g.nextv()
+			v2 := g.nextv()
+			g.printLoadPtr(p1)
+			g.printLoadValue(v1, p1)
+			g.printf("  %%v.%d = icmp ne i%d %%v.%d, 0", v2, wordSize, v1)
+
+			fdlabel := g.getJumpLbl("fd", t.Extra)
+			bdlabel := g.getJumpLbl("bd", t.Extra)
+			g.printf("  br i1 %%v.%d, label %%j%d, label %%j%d", v2, fdlabel, bdlabel)
 			f.Printf("\nj%d:\n", fdlabel)
-			loopStack = append(loopStack, LoopEntry(debugRef(currentLine)))
+			g.loopStack = append(g.loopStack, LoopEntry(g.debugRef(g.currentLine)))
 		case l.JMPB:
-			endBlock()
+			g.endBlock()
 
 			jumpend := fmt.Sprintf("JMPB%d", t.Extra)
 			if DebugSymbols {
-				addDebug(jumpend, "distinct !{!%d, !%d, !%d, !%s}",
-					refNum, loopStack[len(loopStack)-1], debugRef(currentLine)+2, debugRefPh("mustProcessRef"),
+				g.addDebug(jumpend, "distinct !{!%d, !%d, !%d, !%s}",
+					g.refNum, g.loopStack[len(g.loopStack)-1], g.debugRef(g.currentLine)+2, g.debugRefPh("mustProcessRef"),
 				)
 			} else {
-				addDebug(jumpend, "distinct !{!%d, !%s}", refNum, debugRefPh("mustProcessRef"))
+				g.addDebug(jumpend, "distinct !{!%d, !%s}", g.refNum, g.debugRefPh("mustProcessRef"))
 			}
 
-			loopStack = loopStack[:len(loopStack)-1]
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
+			g.loopStack = g.loopStack[:len(g.loopStack)-1]
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
 
-			printf(" br label %%j%d, !llvm.loop !%d", getJumpLbl("f", t.Extra), debugRef(jumpend))
-			f.Printf("\nj%d:\n", getJumpLbl("bd", t.Extra))
+			g.printf(" br label %%j%d, !llvm.loop !%d", g.getJumpLbl("f", t.Extra), g.debugRef(jumpend))
+			f.Printf("\nj%d:\n", g.getJumpLbl("bd", t.Extra))
 
-			if debugRef("mustProcessRef") == -1 {
-				addDebug("mustProcessRef", "!{!\"llvm.loop.mustprogress\"}")
+			if g.debugRef("mustProcessRef") == -1 {
+				g.addDebug("mustProcessRef", "!{!\"llvm.loop.mustprogress\"}")
 			}
 		case l.MUL:
 			// p[%d] += *p * %d;
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
 
 			multiplier := t.Extra
 			ptr := t.Extra2
 
-			p1 := nextv()
-			v1 := nextv()
-			v2 := nextv()
-			v3 := nextv()
+			p1 := g.nextv()
+			v1 := g.nextv()
+			v2 := g.nextv()
+			v3 := g.nextv()
 			// v3 = *p * %d
-			printf("  %%p.%d = load ptr, ptr %%p, align 8", p1)
-			printf("  %%v.%d = load i%d, ptr %%p.%d, align 1", v1, wordSize, p1)
-			printf("  %%v.%d = zext i%d %%v.%d to i32", v2, wordSize, v1)
-			printf("  %%v.%d = mul nsw i32 %%v.%d, %d", v3, v2, multiplier)
+			g.printLoadPtr(p1)
+			g.printLoadValue(v1, p1)
+			v2 = g.printExtendValue(v2, v1)
+			g.printf("  %%v.%d = mul nsw i32 %%v.%d, %d", v3, v2, multiplier)
 
-			p2 := nextv()
-			p3 := nextv()
-			v4 := nextv()
-			v5 := nextv()
+			p2 := g.nextv()
+			p3 := g.nextv()
+			v4 := g.nextv()
+			v5 := g.nextv()
 			// p3 = p[%d]
 			// v5 = *(p[%d])
-			printf("  %%p.%d = load ptr, ptr %%p, align 8", p2)
-			printf("  %%p.%d = getelementptr inbounds i%d, ptr %%p.%d, i64 %d", p3, wordSize, p2, ptr)
-			printf("  %%v.%d = load i%d, ptr %%p.%d, align 1", v4, wordSize, p3)
-			printf("  %%v.%d = zext i%d %%v.%d to i32", v5, wordSize, v4)
+			g.printLoadPtr(p2)
+			g.printf("  %%p.%d = getelementptr inbounds i%d, ptr %%p.%d, i64 %d", p3, wordSize, p2, ptr)
+			g.printLoadValue(v4, p3)
+			v5 = g.printExtendValue(v5, v4)
 
-			v6 := nextv()
-			v7 := nextv()
+			v6 := g.nextv()
+			v7 := g.nextv()
 			// v7 = trunc(v5 + v3)
-			printf("  %%v.%d = add nsw i32 %%v.%d, %%v.%d", v6, v5, v3)
-			printf("  %%v.%d = trunc i32 %%v.%d to i%d", v7, v6, wordSize)
+			g.printf("  %%v.%d = add nsw i32 %%v.%d, %%v.%d", v6, v5, v3)
+			v7 = g.printTruncValue(v7, v6)
 			// *p3 = v7
-			printf("  store i%d %%v.%d, ptr %%p.%d, align 1", wordSize, v7, p3)
+			g.printStoreValue(v7, p3)
 
 		case l.DIV:
 			// p[%d] /= %d;
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
 			ptr := t.Extra2
 
-			p1 := nextv()
+			p1 := g.nextv()
 			// fetch *p or p[%d] to p1
-			printf("  %%p.%d = load ptr, ptr %%p, align 8", p1)
+			g.printLoadPtr(p1)
 			if ptr != 0 {
 				oldp1 := p1
-				p1 = nextv()
-				printf("  %%p.%d = getelementptr inbounds i%d, ptr %%p.%d, i64 %d", p1, wordSize, oldp1, ptr)
+				p1 = g.nextv()
+				g.printf("  %%p.%d = getelementptr inbounds i%d, ptr %%p.%d, i64 %d", p1, wordSize, oldp1, ptr)
 			}
 
-			v1 := nextv()
-			v2 := nextv()
-			v3 := nextv()
-			v4 := nextv()
+			v1 := g.nextv()
+			v2 := g.nextv()
+			v3 := g.nextv()
+			v4 := g.nextv()
 			// int32_t v1 = *p
-			printf("  %%v.%d = load i%d, ptr %%p.%d, align 1", v1, wordSize, p1)
-			printf("  %%v.%d = zext i%d %%v.%d to i32", v2, wordSize, v1)
+			g.printLoadValue(v1, p1)
+			v2 = g.printExtendValue(v2, v1)
 			// int32_t v3 = v2 / t.Extra
-			printf("  %%v.%d = sdiv i32 %%v.%d, %d", v3, v2, t.Extra)
+			g.printf("  %%v.%d = sdiv i32 %%v.%d, %d", v3, v2, t.Extra)
 			// *p = trunc(v3)
-			printf("  %%v.%d = trunc i32 %%v.%d to i%d", v4, v3, wordSize)
-			printf("  store i%d %%v.%d, ptr %%p.%d, align 1", wordSize, v4, p1)
+			v4 = g.printTruncValue(v4, v3)
+			g.printStoreValue(v4, p1)
 
 		case l.BZ:
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
-			p1 := nextv()
-			v1 := nextv()
-			v2 := nextv()
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
+			p1 := g.nextv()
+			v1 := g.nextv()
+			v2 := g.nextv()
 			// v1 = *p
-			printf("  %%p.%d = load ptr, ptr %%p, align 8", p1)
-			printf("  %%v.%d = load i%d, ptr %%p.%d, align 1", v1, wordSize, p1)
+			g.printLoadPtr(p1)
+			g.printLoadValue(v1, p1)
 			// v2 = v1 != 0
-			printf("  %%v.%d = icmp ne i%d %%v.%d, 0", v2, wordSize, v1)
-			printf("  br i1 %%v.%d, label %%j%d, label %%j%d", v2, getJumpLbl("f", t.Extra), getJumpLbl("if", t.Extra))
+			g.printf("  %%v.%d = icmp ne i%d %%v.%d, 0", v2, wordSize, v1)
+			g.printf("  br i1 %%v.%d, label %%j%d, label %%j%d", v2, g.getJumpLbl("f", t.Extra), g.getJumpLbl("if", t.Extra))
 
-			f.Printf("\nj%d:\n", getJumpLbl("f", t.Extra))
+			f.Printf("\nj%d:\n", g.getJumpLbl("f", t.Extra))
 		case l.LBL:
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
-			printf("  br label %%j%d", getJumpLbl("if", t.Extra))
-			f.Printf("\nj%d:\n", getJumpLbl("if", t.Extra))
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
+			g.printf("  br label %%j%d", g.getJumpLbl("if", t.Extra))
+			f.Printf("\nj%d:\n", g.getJumpLbl("if", t.Extra))
 		case l.MOV:
 			// p[%d] = %d;
-			currentLine = addLine(t.Pos.Line, t.Pos.Column)
+			g.currentLine = g.addLine(t.Pos.Line, t.Pos.Column)
 			ptr := t.Extra2
 			value := t.Extra
 
-			p1 := nextv()
-			printf("  %%p.%d = load ptr, ptr %%p, align 8", p1)
+			p1 := g.nextv()
+			g.printLoadPtr(p1)
 
 			if ptr != 0 {
 				pold := p1
-				p1 = nextv()
-				printf("  %%p.%d = getelementptr inbounds i%d, ptr %%p.%d, i64 %d", p1, wordSize, pold, ptr)
+				p1 = g.nextv()
+				g.printf("  %%p.%d = getelementptr inbounds i%d, ptr %%p.%d, i64 %d", p1, wordSize, pold, ptr)
 			}
 
-			// We should probably use a bigger "wordsize" for pointer references
-			printf("  store i%d %d, ptr %%p.%d, align 1", wordSize, value, p1)
+			g.printf("  store i%d %d, ptr %%p.%d, align 1", wordSize, value, p1)
 		default:
 			log.Fatalf("Error: Unknown token %v\n", t.Tok)
 		}
 	}
-	printf("  ret i32 0")
+	g.printf("  ret i32 0")
 	f.Println("}\n")
 
 	declarationCounter := 1
@@ -432,23 +329,12 @@ func PrintIR(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memo
 	f.Println("attributes #2 = { \"darwin-stkchk-strong-link\" \"frame-pointer\"=\"all\" \"no-trapping-math\"=\"true\" \"probe-stack\"=\"___chkstk_darwin\" \"stack-protector-buffer-size\"=\"8\" \"tune-cpu\"=\"generic\" }\n")
 
 	f.Printf("!llvm.module.flags = !{!%d, !%d, !%d, !%d, !%d, !%d}\n",
-		debugRef("flag1"), debugRef("flag2"), debugRef("flag3"), debugRef("flag4"), debugRef("flag5"), debugRef("flag6"),
+		g.debugRef("flag1"), g.debugRef("flag2"), g.debugRef("flag3"), g.debugRef("flag4"), g.debugRef("flag5"), g.debugRef("flag6"),
 	)
 	if DebugSymbols {
-		f.Printf("!llvm.dbg.cu = !{!%d}\n", debugRef("scope"))
+		f.Printf("!llvm.dbg.cu = !{!%d}\n", g.debugRef("scope"))
 	}
-	f.Printf("!llvm.ident = !{!%d}\n\n", debugRef("ident"))
+	f.Printf("!llvm.ident = !{!%d}\n\n", g.debugRef("ident"))
 
-	// Ouput debug information with the correct references
-	re := regexp.MustCompile(`\$\${REPLACE_([^}]+)}`)
-	for _, v := range debugInfo {
-		newvalue := u.ReplaceAllStringSubmatchFunc(re, v, func(groups []string) string {
-			val := debugRef(groups[1])
-			if val == -1 {
-				return "[N/A]"
-			}
-			return strconv.Itoa(val)
-		})
-		f.Println(newvalue)
-	}
+	g.OutputDebugInfo()
 }
