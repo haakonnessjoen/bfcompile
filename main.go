@@ -32,7 +32,7 @@ func main() {
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	// parse command line arguments
-	flag.StringVar(&optGenerator, "g", "qbe", "Code generator to use: tokens, llvm, qbe, c, js or bf")
+	flag.StringVar(&optGenerator, "g", "qbe", "Code generator to use: tokens, llvm, qbe, c, js, rust or bf")
 	flag.BoolVar(&optInterpret, "i", false, "Interpret the code instead of generating code. This will ignore the -g option.")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
@@ -67,7 +67,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "js" && optGenerator != "bf" && optGenerator != "tokens" && optGenerator != "llvm" {
+	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "js" && optGenerator != "rust" && optGenerator != "bf" && optGenerator != "tokens" && optGenerator != "llvm" {
 		fmt.Fprintf(os.Stderr, "Error: Unknown generator %s\n\n", optGenerator)
 		flag.Usage()
 		os.Exit(1)
@@ -148,6 +148,8 @@ func main() {
 			g.PrintC(output, tokens, optComments, optMemorySize, optWordSize)
 		case "js":
 			g.PrintJS(output, tokens, optComments, optMemorySize, optWordSize)
+		case "rust":
+			g.PrintRust(output, tokens, optComments, optMemorySize, optWordSize)
 		case "bf":
 			g.PrintBF(output, tokens, optComments)
 		case "tokens":
