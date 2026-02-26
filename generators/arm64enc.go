@@ -11,12 +11,26 @@ const (
 	X19 = 19
 	X20 = 20
 	X21 = 21
+	X16 = 16
 	X22 = 22
 	X29 = 29
 	X30 = 30
 	XZR = 31
 	SP  = 31
 )
+
+// encSvc: SVC #imm16 — supervisor call (syscall)
+func encSvc(imm16 uint32) uint32 {
+	return 0xD4000001 | (imm16&0xFFFF)<<5
+}
+
+// encAdrp: ADRP Xd, #imm21 — load PC-relative page address
+// imm21 is the signed page difference: (targetPage >> 12) - (instrPage >> 12)
+func encAdrp(rd int, imm21 int) uint32 {
+	immlo := uint32(imm21) & 0x3
+	immhi := (uint32(imm21) >> 2) & 0x7FFFF
+	return 1<<31 | immlo<<29 | 0x10<<24 | immhi<<5 | uint32(rd&0x1F)
+}
 
 // encAddImm: ADD Rd, Rn, #imm12 (sf=1 for 64-bit, sf=0 for 32-bit)
 func encAddImm(sf, rd, rn int, imm uint32, shift int) uint32 {
