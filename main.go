@@ -32,13 +32,13 @@ func main() {
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	// parse command line arguments
-	flag.StringVar(&optGenerator, "g", "qbe", "Code generator to use: tokens, llvm, qbe, c, js, rust or bf")
+	flag.StringVar(&optGenerator, "g", "qbe", "Code generator to use: tokens, llvm, qbe, c, carm64, js, rust or bf")
 	flag.BoolVar(&optInterpret, "i", false, "Interpret the code instead of generating code. This will ignore the -g option.")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
 	flag.BoolVar(&optDebug, "d", false, "Enable verbose output from optimizer")
 	flag.BoolVar(&optDebugSymbols, "lg", false, "Enable LLVM debug symbols generation")
-	flag.IntVar(&optWordSize, "w", 8, "Cell size (8, 16 or 32)")
+	flag.IntVar(&optWordSize, "w", 8, "Cell size (8, 16, 32 or 64)")
 	flag.IntVar(&optMemorySize, "m", 30000, "Memory size available to brainfuck in the generated code")
 	flag.StringVar(&optOutput, "out", "", "Set a filename to output to instead of outputting to STDOUT.")
 
@@ -61,13 +61,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if optWordSize != 8 && optWordSize != 16 && optWordSize != 32 {
+	if optWordSize != 8 && optWordSize != 16 && optWordSize != 32 && optWordSize != 64 {
 		fmt.Fprintf(os.Stderr, "Error: Unknown cell size: %d\n\n", optWordSize)
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "js" && optGenerator != "rust" && optGenerator != "bf" && optGenerator != "tokens" && optGenerator != "llvm" {
+	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "carm64" && optGenerator != "js" && optGenerator != "rust" && optGenerator != "bf" && optGenerator != "tokens" && optGenerator != "llvm" {
 		fmt.Fprintf(os.Stderr, "Error: Unknown generator %s\n\n", optGenerator)
 		flag.Usage()
 		os.Exit(1)
@@ -146,6 +146,8 @@ func main() {
 			g.PrintIL(output, tokens, optComments, optMemorySize, optWordSize)
 		case "c":
 			g.PrintC(output, tokens, optComments, optMemorySize, optWordSize)
+		case "carm64":
+			g.PrintCARM64(output, tokens, optComments, optMemorySize, optWordSize)
 		case "js":
 			g.PrintJS(output, tokens, optComments, optMemorySize, optWordSize)
 		case "rust":
