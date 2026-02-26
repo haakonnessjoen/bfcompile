@@ -324,9 +324,9 @@ func PrintIR(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memo
 	f.Printf("declare i32 @putchar(i32 noundef) #%d\n\n", declarationCounter)
 	declarationCounter++
 
-	f.Println("attributes #0 = { nounwind norecurse ssp uwtable  \"frame-pointer\"=\"all\" \"min-legal-vector-width\"=\"0\" \"no-trapping-math\"=\"true\" \"probe-stack\"=\"___chkstk_darwin\" \"stack-protector-buffer-size\"=\"8\" \"tune-cpu\"=\"generic\" }")
+	f.Println("attributes #0 = { nounwind norecurse ssp uwtable \"frame-pointer\"=\"all\" \"min-legal-vector-width\"=\"0\" \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" \"tune-cpu\"=\"generic\" }")
 	f.Println("attributes #1 = { nocallback nofree nosync nounwind readnone speculatable willreturn }")
-	f.Println("attributes #2 = { \"darwin-stkchk-strong-link\" \"frame-pointer\"=\"all\" \"no-trapping-math\"=\"true\" \"probe-stack\"=\"___chkstk_darwin\" \"stack-protector-buffer-size\"=\"8\" \"tune-cpu\"=\"generic\" }\n")
+	f.Println("attributes #2 = { \"frame-pointer\"=\"all\" \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" \"tune-cpu\"=\"generic\" }\n")
 
 	f.Printf("!llvm.module.flags = !{!%d, !%d, !%d, !%d, !%d, !%d}\n",
 		g.debugRef("flag1"), g.debugRef("flag2"), g.debugRef("flag3"), g.debugRef("flag4"), g.debugRef("flag5"), g.debugRef("flag6"),
