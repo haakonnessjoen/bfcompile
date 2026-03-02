@@ -107,8 +107,8 @@ func main() {
 	}
 
 	if optOptimize && optGenerator != "bf" {
-		tokens = p.Optimize2(tokens, optGenerator)
-		tokens = p.Optimize2(tokens, optGenerator)
+		tokens = p.Optimize2(tokens, optGenerator, optWordSize)
+		tokens = p.Optimize2(tokens, optGenerator, optWordSize)
 
 		for {
 			newtokens := p.Optimize(tokens)

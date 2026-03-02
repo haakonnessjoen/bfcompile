@@ -117,6 +117,37 @@ func Peek(tokens *[]g.ParseToken, idx int) *g.ParseToken {
 	return &(*tokens)[idx]
 }
 
+func gcdInt(a, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	if a < 0 {
+		return -a
+	}
+	return a
+}
+
+func modInverse(a, m int) int {
+	// Extended Euclidean algorithm
+	g, x, _ := extGCD(a%m, m)
+	if g != 1 {
+		return -1 // inverse doesn't exist
+	}
+	return ((x % m) + m) % m
+}
+
+func extGCD(a, b int) (int, int, int) {
+	if a == 0 {
+		return b, 0, 1
+	}
+	g, x, y := extGCD(b%a, a)
+	return g, y - (b/a)*x, x
+}
+
+func isPowerOf2(n int) bool {
+	return n > 0 && (n&(n-1)) == 0
+}
+
 func findLoopEnd(tokens []g.ParseToken) int {
 	depth := 1
 	for i, t := range tokens {
@@ -170,7 +201,7 @@ func setValueAfterLoop(t g.ParseToken, tokens []g.ParseToken) (newToken *g.Parse
 
 // This will optimize the code and add multiplication
 // so this optimizer will generate new tokens not supported by the Brainfuck generator
-func Optimize2(tokens []g.ParseToken, generator string) []g.ParseToken {
+func Optimize2(tokens []g.ParseToken, generator string, wordSize int) []g.ParseToken {
 	newTokens := make([]g.ParseToken, 0, len(tokens))
 	// We know that the first byte is 0
 	currentPointerIsZero := true
@@ -288,15 +319,30 @@ mainloop:
 				}
 
 				pointer = 0
-				// If the decrementer is not 1, we need to divide p[0] with the decrementer to get the correct multiplier
+				inv := 0
+				cellMax := 1 << wordSize
+				// If the decrementer is not 1, we need to handle non-unit decrementers
 				if decrementer != 1 && decrementer != 0 {
-					D(t, "SLO: Loop with decrementer %d, adding DIV with (%d, 0)", decrementer, decrementer)
-					newTokens = append(newTokens, g.ParseToken{
-						Pos:    t.Pos,
-						Tok:    l.Token{Tok: l.DIV, TokenName: "DIV", Character: ""},
-						Extra:  decrementer,
-						Extra2: 0,
-					})
+					if isPowerOf2(decrementer) {
+						// Power-of-2: integer division is correct
+						D(t, "SLO: Loop with power-of-2 decrementer %d, adding DIV with (%d, 0)", decrementer, decrementer)
+						newTokens = append(newTokens, g.ParseToken{
+							Pos:    t.Pos,
+							Tok:    l.Token{Tok: l.DIV, TokenName: "DIV", Character: ""},
+							Extra:  decrementer,
+							Extra2: 0,
+						})
+					} else if gcdInt(decrementer, cellMax) == 1 {
+						// Odd decrementer: compute modular inverse, fold into MUL multipliers below
+						inv = modInverse(decrementer, cellMax)
+						D(t, "SLO: Loop with odd decrementer %d, using modular inverse %d", decrementer, inv)
+					} else {
+						// Even non-power-of-2: can't optimize, abort
+						D(t, "SLO: Loop with even non-power-of-2 decrementer %d, cannot optimize", decrementer)
+						newTokens = append(newTokens, t)
+						currentPointerIsZero = false
+						continue mainloop
+					}
 				}
 				D(t, "SLO: Loop had %d instructions, with %d decrements of p[0] per round", insts, decrementer)
 
@@ -345,6 +391,11 @@ mainloop:
 						// If this is a SUB, we need to negate the count
 						if ttoken == l.SUB {
 							count = -count
+						}
+
+						// Fold modular inverse into the multiplier
+						if inv != 0 {
+							count = ((count * inv) % cellMax + cellMax) % cellMax
 						}
 
 						D(tt, "SLO: Adding MUL with %d, %d", count, pointer)

@@ -134,7 +134,7 @@ func TestComplicatedCodeNumasciiartOptimize2(t *testing.T) {
 	tokens := p.ParseFile("brainfuck/numasciiart.bf")
 
 	tokens = p.Optimize(tokens)
-	tokens = p.Optimize2(tokens, "")
+	tokens = p.Optimize2(tokens, "", 8)
 
 	got := getInterpretedOutput(tokens, []byte("(0123456789-abcdef/. . .)\n"))
 	want := wantOutput("numasciiart")
@@ -172,8 +172,8 @@ func TestComplicatedCodeTictactoeOptimize2(t *testing.T) {
 	tokens := p.ParseFile("brainfuck/tictactoe.bf")
 
 	tokens = p.Optimize(tokens)
-	tokens = p.Optimize2(tokens, "")
-	tokens = p.Optimize2(tokens, "")
+	tokens = p.Optimize2(tokens, "", 8)
+	tokens = p.Optimize2(tokens, "", 8)
 
 	got := getInterpretedOutput(tokens, []byte("5\n8\n3\n4\n"))
 	want := wantOutput("tictactoe")
@@ -209,12 +209,26 @@ func TestJSL2Optimized(t *testing.T) {
 	tokens := p.ParseFile("testdata/test05.bf")
 
 	tokens = p.Optimize(tokens)
-	tokens = p.Optimize2(tokens, "js")
+	tokens = p.Optimize2(tokens, "js", 8)
 	f := g.NewGeneratorOutputString()
 	g.PrintJS(f, tokens, false, 30000, 8)
 
 	got := f.GetOutput()
 	want := wantOutput("test05")
+
+	if !bytes.Equal(got, want) {
+		t.Errorf("got %q, wanted %q", got, want)
+	}
+}
+
+func TestNegativeOverflowModularArithmetic(t *testing.T) {
+	// --[------->++<]>. should output char 36 ('$')
+	tokens := p.ParseFile("testdata/test_modinv.bf")
+	tokens = p.Optimize(tokens)
+	tokens = p.Optimize2(tokens, "", 8)
+
+	got := getInterpretedOutput(tokens, []byte{})
+	want := []byte("$")
 
 	if !bytes.Equal(got, want) {
 		t.Errorf("got %q, wanted %q", got, want)
@@ -227,7 +241,7 @@ func TestJSL2Optimized(t *testing.T) {
 func TestBZCheckComplicatedCode1(t *testing.T) {
 	tokens := p.ParseFile("testdata/test06.bf")
 	tokens = p.Optimize(tokens)
-	tokens = p.Optimize2(tokens, "js")
+	tokens = p.Optimize2(tokens, "js", 8)
 
 	tokenstrings := make([]string, 0, len(tokens))
 	for _, t := range tokens {
