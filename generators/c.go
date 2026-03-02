@@ -101,7 +101,7 @@ func PrintC(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memor
 			indentLevel--
 			f.Printf("%s}\n", indent(indentLevel))
 		case l.SCANL:
-			// Not implemented, because memrchr only seems to be included in GNU standard library
+			f.Printf("%swhile (*p) p--;\n", indent(indentLevel))
 		case l.SCANR:
 			f.Printf("%sp = (%s *)(memchr(p, 0, sizeof(mem) - (p-mem)));\n", indent(indentLevel), wordType)
 		case l.MOV:
@@ -114,7 +114,7 @@ func PrintC(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memor
 			if wordSize == 8 {
 				f.Printf("%sp += fputs((char *)p, stdout);\n", indent(indentLevel))
 			} else {
-				f.Printf("%swhile (p* != 0) { putchar(*p); p++; }\n", indent(indentLevel))
+				f.Printf("%swhile (*p != 0) { putchar(*p); p++; }\n", indent(indentLevel))
 			}
 		default:
 			log.Fatalf("Error: Unknown token %v\n", t.Tok)

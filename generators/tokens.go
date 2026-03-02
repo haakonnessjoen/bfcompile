@@ -46,6 +46,12 @@ func PrintTokens(f *GeneratorOutput, tokens []ParseToken, includeComments bool) 
 			f.Printf("%sLBL @%d\n", indent(indentLevel), t.Extra)
 		case l.MOV:
 			f.Printf("%sMOV %d, %d\n", indent(indentLevel), t.Extra, t.Extra2)
+		case l.SCANR:
+			f.Printf("%sSCANR\n", indent(indentLevel))
+		case l.SCANL:
+			f.Printf("%sSCANL\n", indent(indentLevel))
+		case l.PRNT:
+			f.Printf("%sPRNT\n", indent(indentLevel))
 		default:
 			log.Fatalf("Error: Unknown token %v\n", t.Tok)
 		}

@@ -122,6 +122,21 @@ func interpretTokensOfSize[S uint8 | uint16 | uint32](tokens []g.ParseToken, mem
 		case l.MOV:
 			mem[p+pointer] = S(value)
 
+		case l.SCANR:
+			for mem[p] != 0 {
+				p++
+			}
+		case l.SCANL:
+			for mem[p] != 0 {
+				p--
+			}
+		case l.PRNT:
+			for mem[p] != 0 {
+				out.Write([]byte{byte(mem[p])})
+				p++
+			}
+			out.Flush()
+
 		default:
 			fmt.Fprintf(os.Stderr, "Warning: Unrecognized token: %v!\n", t.Tok.TokenName)
 		}

@@ -109,6 +109,14 @@ func main() {
 	if optOptimize && optGenerator != "bf" {
 		tokens = p.Optimize2(tokens, optGenerator)
 		tokens = p.Optimize2(tokens, optGenerator)
+
+		for {
+			newtokens := p.Optimize(tokens)
+			if len(newtokens) == len(tokens) {
+				break
+			}
+			tokens = newtokens
+		}
 	}
 
 	if optOptimize && initialCount > 0 {

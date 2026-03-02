@@ -205,7 +205,7 @@ mainloop:
 
 			// Found this idea here: http://calmerthanyouare.org/2015/01/07/optimizing-brainfuck.html
 			// C stdlib has memchr() to go through data fast, (but seems like memrchr() is only in gnu stdlib)
-			if generator == "dc" {
+			if generator != "llvm" && generator != "qbe" && generator != "js" && generator != "bf" && generator != "tokens" {
 				if Peek(&tokens, i+2).Tok.Tok == l.JMPB && (Peek(&tokens, i+1).Tok.Tok == l.INCP || Peek(&tokens, i+1).Tok.Tok == l.DECP) && Peek(&tokens, i+1).Extra == 1 {
 					D(t, "C optimization, found a simple scanloop")
 					if Peek(&tokens, i+1).Tok.Tok == l.INCP {
@@ -213,16 +213,15 @@ mainloop:
 							Pos: t.Pos,
 							Tok: l.Token{Tok: l.SCANR, TokenName: "SCANR", Character: ""},
 						})
-						/*} else {
-							newTokens = append(newTokens, g.ParseToken{
-								Pos: t.Pos,
-								Tok: l.Token{Tok: l.SCANL, TokenName: "SCANL", Character: ""},
-							})
-						}*/
-						i += 2
-						currentPointerIsZero = true
-						continue
+					} else {
+						newTokens = append(newTokens, g.ParseToken{
+							Pos: t.Pos,
+							Tok: l.Token{Tok: l.SCANL, TokenName: "SCANL", Character: ""},
+						})
 					}
+					i += 2
+					currentPointerIsZero = true
+					continue
 				}
 
 				// Find [.>], it's a simple puts
@@ -415,6 +414,8 @@ mainloop:
 
 			currentPointerIsZero = false
 		} else if token == l.JMPB {
+			currentPointerIsZero = true
+		} else if token == l.MOV && t.Extra == 0 && t.Extra2 == 0 {
 			currentPointerIsZero = true
 		} else {
 			currentPointerIsZero = false
