@@ -12,15 +12,15 @@ import (
 )
 
 var (
-	optGenerator  string
-	optInterpret  bool
-	optOptimize   bool
-	optDebug      bool
+	optGenerator    string
+	optInterpret    bool
+	optOptimize     bool
+	optDebug        bool
 	optDebugSymbols bool
-	optComments   bool
-	optWordSize   int
-	optMemorySize int
-	optOutput     string
+	optComments     bool
+	optWordSize     int
+	optMemorySize   int
+	optOutput       string
 )
 
 const PACKAGE_NAME = "bfcompile"
@@ -32,7 +32,7 @@ func main() {
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	// parse command line arguments
-	flag.StringVar(&optGenerator, "g", "qbe", "Code generator to use: tokens, llvm, qbe, c, carm64, arm64, js, rust or bf")
+	flag.StringVar(&optGenerator, "g", "tokens", "Code generator to use: tokens, llvm, qbe, c, carm64, darwin-arm64, js, rust or bf")
 	flag.BoolVar(&optInterpret, "i", false, "Interpret the code instead of generating code. This will ignore the -g option.")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
@@ -67,7 +67,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "carm64" && optGenerator != "arm64" && optGenerator != "js" && optGenerator != "rust" && optGenerator != "bf" && optGenerator != "tokens" && optGenerator != "llvm" {
+	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "carm64" && optGenerator != "darwin-arm64" && optGenerator != "js" && optGenerator != "rust" && optGenerator != "bf" && optGenerator != "tokens" && optGenerator != "llvm" {
 		fmt.Fprintf(os.Stderr, "Error: Unknown generator %s\n\n", optGenerator)
 		flag.Usage()
 		os.Exit(1)
@@ -143,8 +143,8 @@ func main() {
 
 	if optInterpret {
 		i.InterpretTokens(tokens, optMemorySize, os.Stdin, bfutils.WrapStdout(os.Stdout), optWordSize)
-	} else if optGenerator == "arm64" {
-		g.PrintARM64(optOutput, tokens, optMemorySize, optWordSize)
+	} else if optGenerator == "darwin-arm64" {
+		g.PrintDarwinARM64(optOutput, tokens, optMemorySize, optWordSize)
 	} else {
 		output := g.NewGeneratorOutputFile(optOutput)
 		defer output.Close()

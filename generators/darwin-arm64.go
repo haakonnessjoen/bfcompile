@@ -70,8 +70,8 @@ func alignUp(v, align uint64) uint64 {
 	return (v + align - 1) &^ (align - 1)
 }
 
-// PrintARM64 generates a Mach-O ARM64 binary directly.
-func PrintARM64(outpath string, tokens []ParseToken, memorySize int, wordSize int) {
+// PrintDarwinARM64 generates a Mach-O ARM64 binary directly.
+func PrintDarwinARM64(outpath string, tokens []ParseToken, memorySize int, wordSize int) {
 	gen := &arm64Gen{
 		code:      make([]uint32, 0, 1024),
 		wordSize:  wordSize,
