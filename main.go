@@ -32,7 +32,7 @@ func main() {
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	// parse command line arguments
-	flag.StringVar(&optGenerator, "g", "tokens", "Code generator to use: tokens, llvm, qbe, c, carm64, darwin-arm64, js, rust or bf")
+	flag.StringVar(&optGenerator, "g", "tokens", "Code generator to use: tokens, llvm, qbe, c, carm64, camd64, darwin-arm64, linux-amd64, js, rust or bf")
 	flag.BoolVar(&optInterpret, "i", false, "Interpret the code instead of generating code. This will ignore the -g option.")
 	flag.BoolVar(&optOptimize, "o", false, "Optimize the code")
 	flag.BoolVar(&optComments, "c", false, "Add reference comments to the generated code")
@@ -67,7 +67,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "carm64" && optGenerator != "darwin-arm64" && optGenerator != "js" && optGenerator != "rust" && optGenerator != "bf" && optGenerator != "tokens" && optGenerator != "llvm" {
+	if optGenerator != "qbe" && optGenerator != "c" && optGenerator != "carm64" && optGenerator != "camd64" && optGenerator != "darwin-arm64" && optGenerator != "linux-amd64" && optGenerator != "js" && optGenerator != "rust" && optGenerator != "bf" && optGenerator != "tokens" && optGenerator != "llvm" {
 		fmt.Fprintf(os.Stderr, "Error: Unknown generator %s\n\n", optGenerator)
 		flag.Usage()
 		os.Exit(1)
@@ -145,6 +145,8 @@ func main() {
 		i.InterpretTokens(tokens, optMemorySize, os.Stdin, bfutils.WrapStdout(os.Stdout), optWordSize)
 	} else if optGenerator == "darwin-arm64" {
 		g.PrintDarwinARM64(optOutput, tokens, optMemorySize, optWordSize)
+	} else if optGenerator == "linux-amd64" {
+		g.PrintLinuxAMD64(optOutput, tokens, optMemorySize, optWordSize)
 	} else {
 		output := g.NewGeneratorOutputFile(optOutput)
 		defer output.Close()
@@ -158,6 +160,8 @@ func main() {
 			g.PrintC(output, tokens, optComments, optMemorySize, optWordSize)
 		case "carm64":
 			g.PrintCARM64(output, tokens, optComments, optMemorySize, optWordSize)
+		case "camd64":
+			g.PrintCAMD64(output, tokens, optComments, optMemorySize, optWordSize)
 		case "js":
 			g.PrintJS(output, tokens, optComments, optMemorySize, optWordSize)
 		case "rust":

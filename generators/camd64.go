@@ -1,0 +1,241 @@
+package generators
+
+import (
+	l "bcomp/lexer"
+	"fmt"
+	"log"
+)
+
+// PrintCAMD64 generates a C file containing x86-64 machine code as a uint8_t array.
+// The generated code is a callable function: void bf(void *mem, int(*putchar)(int), int(*getchar)(void))
+func PrintCAMD64(f *GeneratorOutput, tokens []ParseToken, includeComments bool, memorySize int, wordSize int) {
+	gen := &amd64Gen{
+		code:      make([]byte, 0, 4096),
+		wordSize:  wordSize,
+		byteScale: wordSize / 8,
+		loopStack: make([]amd64LoopInfo, 0, 32),
+		ifPatch:   make(map[int]int),
+		useFnPtr:  true,
+	}
+
+	// Prologue: save callee-saved registers and set up pointers
+	// push rbx; push r12; push r13 (3 pushes = 8-byte aligned with return addr)
+	gen.emitPush(RBX)
+	gen.emitPush(R12)
+	gen.emitPush(R13)
+	// mov rbx, rdi (memory pointer)
+	gen.emitMovRegReg(RBX, RDI)
+	// mov r12, rsi (putchar)
+	gen.emitMovRegReg(R12, RSI)
+	// mov r13, rdx (getchar)
+	gen.emitMovRegReg(R13, RDX)
+
+	for _, t := range tokens {
+		switch t.Tok.Tok {
+		case l.ADD:
+			gen.emitLoadCell()
+			gen.emitAddCellImm(RAX, t.Extra)
+			gen.emitMask(RAX)
+			gen.emitStoreCell()
+
+		case l.SUB:
+			gen.emitLoadCell()
+			gen.emitSubCellImm(RAX, t.Extra)
+			gen.emitMask(RAX)
+			gen.emitStoreCell()
+
+		case l.INCP:
+			gen.emitAddRegImm(RBX, t.Extra*gen.byteScale)
+
+		case l.DECP:
+			gen.emitSubRegImm(RBX, t.Extra*gen.byteScale)
+
+		case l.OUT:
+			for i := 0; i < t.Extra; i++ {
+				// movzx edi, byte [rbx]
+				gen.emitLoadMem(RDI, 0)
+				// call r12
+				gen.emitCallReg(R12)
+			}
+
+		case l.IN:
+			for i := 0; i < t.Extra; i++ {
+				// call r13
+				gen.emitCallReg(R13)
+			}
+			// store result: mov [rbx], al
+			gen.emitMask(RAX)
+			gen.emitStoreCell()
+
+		case l.JMPF:
+			topOff := gen.pos()
+			gen.emitLoadCell()
+			gen.emitTestRegReg(RAX)
+			jeOff := gen.emitJeRel32()
+			gen.loopStack = append(gen.loopStack, amd64LoopInfo{topOff, jeOff})
+
+		case l.JMPB:
+			info := gen.loopStack[len(gen.loopStack)-1]
+			gen.loopStack = gen.loopStack[:len(gen.loopStack)-1]
+			jmpOff := gen.emitJmpRel32()
+			gen.patch32(jmpOff, uint32(int32(info.topOff-gen.pos())))
+			gen.patch32(info.jeOff, uint32(int32(gen.pos()-(info.jeOff+4))))
+
+		case l.BZ:
+			gen.emitLoadCell()
+			gen.emitTestRegReg(RAX)
+			jeOff := gen.emitJeRel32()
+			gen.ifPatch[t.Extra] = jeOff
+
+		case l.LBL:
+			jeOff := gen.ifPatch[t.Extra]
+			gen.patch32(jeOff, uint32(int32(gen.pos()-(jeOff+4))))
+
+		case l.MUL:
+			multiplier := t.Extra
+			offset := t.Extra2
+			gen.emitLoadCell()
+			if multiplier == 1 {
+				gen.emitLoadTo(RCX, offset)
+				gen.emitAddRegReg(RCX, RAX)
+			} else if multiplier == -1 {
+				gen.emitLoadTo(RCX, offset)
+				gen.emitSubRegReg(RCX, RAX)
+			} else {
+				abs := multiplier
+				if abs < 0 {
+					abs = -abs
+				}
+				gen.emitImul3(RCX, RAX, abs)
+				gen.emitLoadTo(RAX, offset)
+				if multiplier > 0 {
+					gen.emitAddRegReg(RAX, RCX)
+				} else {
+					gen.emitSubRegReg(RAX, RCX)
+				}
+				gen.emitMask(RAX)
+				gen.emitStoreTo(RAX, offset)
+				continue
+			}
+			gen.emitMask(RCX)
+			gen.emitStoreTo(RCX, offset)
+
+		case l.DIV:
+			divisor := t.Extra
+			offset := t.Extra2
+			gen.emitLoadTo(RAX, offset)
+			gen.emitMovImm(RCX, divisor)
+			gen.emitDiv(RCX)
+			gen.emitMask(RAX)
+			gen.emitStoreTo(RAX, offset)
+
+		case l.MOV:
+			value := t.Extra
+			offset := t.Extra2
+			if value == 0 {
+				gen.emitStoreZeroMem(offset * gen.byteScale)
+			} else {
+				gen.emitMovImm(RAX, value)
+				gen.emitMask(RAX)
+				gen.emitStoreTo(RAX, offset)
+			}
+
+		case l.SCANR:
+			topOff := gen.pos()
+			gen.emitLoadCell()
+			gen.emitTestRegReg(RAX)
+			jeOff := gen.emitJeRel32()
+			gen.emitAddRegImm(RBX, gen.byteScale)
+			jmpOff := gen.emitJmpRel32()
+			gen.patch32(jmpOff, uint32(int32(topOff-gen.pos())))
+			gen.patch32(jeOff, uint32(int32(gen.pos()-(jeOff+4))))
+
+		case l.SCANL:
+			topOff := gen.pos()
+			gen.emitLoadCell()
+			gen.emitTestRegReg(RAX)
+			jeOff := gen.emitJeRel32()
+			gen.emitSubRegImm(RBX, gen.byteScale)
+			jmpOff := gen.emitJmpRel32()
+			gen.patch32(jmpOff, uint32(int32(topOff-gen.pos())))
+			gen.patch32(jeOff, uint32(int32(gen.pos()-(jeOff+4))))
+
+		case l.PRNT:
+			topOff := gen.pos()
+			gen.emitLoadCell()
+			gen.emitTestRegReg(RAX)
+			jeOff := gen.emitJeRel32()
+			gen.emitLoadMem(RDI, 0)
+			gen.emitCallReg(R12)
+			gen.emitAddRegImm(RBX, gen.byteScale)
+			jmpOff := gen.emitJmpRel32()
+			gen.patch32(jmpOff, uint32(int32(topOff-gen.pos())))
+			gen.patch32(jeOff, uint32(int32(gen.pos()-(jeOff+4))))
+
+		default:
+			log.Fatalf("Error: Unknown token %v\n", t.Tok)
+		}
+	}
+
+	// Epilogue
+	gen.emitPop(R13)
+	gen.emitPop(R12)
+	gen.emitPop(RBX)
+	gen.emitRet()
+
+	// Output the C wrapper
+	wordType := ""
+	switch wordSize {
+	case 8:
+		wordType = "uint8_t"
+	case 16:
+		wordType = "uint16_t"
+	case 32:
+		wordType = "uint32_t"
+	case 64:
+		wordType = "uint64_t"
+	}
+
+	f.Println("/* Generated by bfcompile - x86-64 native code generator */")
+	f.Println("#include <stdio.h>")
+	f.Println("#include <stdint.h>")
+	f.Println("#include <string.h>")
+	f.Println("#include <sys/mman.h>")
+	f.Println("")
+	f.Printf("static %s mem[%d];\n\n", wordType, memorySize)
+	f.Println("static const uint8_t bf_code[] = {")
+	for i := 0; i < len(gen.code); i++ {
+		if i%16 == 0 {
+			f.Print("    ")
+		}
+		if i == len(gen.code)-1 {
+			f.Printf("0x%02X", gen.code[i])
+		} else if i%16 == 15 {
+			f.Printf("0x%02X,\n", gen.code[i])
+		} else {
+			f.Printf("0x%02X, ", gen.code[i])
+		}
+	}
+	f.Println("")
+	f.Println("};")
+	f.Println("")
+	f.Println("int main(void) {")
+	f.Println("    size_t code_size = sizeof(bf_code);")
+	f.Println("    size_t alloc = (code_size + 4095) & ~(size_t)4095;")
+	f.Println("    void *exec = mmap(NULL, alloc, PROT_READ | PROT_WRITE | PROT_EXEC,")
+	f.Println("                      MAP_PRIVATE | MAP_ANON, -1, 0);")
+	f.Println("    if (exec == MAP_FAILED) { perror(\"mmap\"); return 1; }")
+	f.Println("    memcpy(exec, bf_code, code_size);")
+	f.Printf("    ((void (*)(void *, int (*)(int), int (*)(void)))exec)(mem, putchar, getchar);\n")
+	f.Println("    munmap(exec, alloc);")
+	f.Println("    return 0;")
+	f.Println("}")
+	if includeComments {
+		f.Printf("/* %d bytes of x86-64 code generated */\n", len(gen.code))
+	}
+}
+
+// formatHexByte is a helper for hex formatting
+func formatHexByte(v byte) string {
+	return fmt.Sprintf("0x%02X", v)
+}

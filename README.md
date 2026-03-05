@@ -1,6 +1,6 @@
 # Brainfuck compiler
 
-This project parses brainfuck files, optimizes it, and generates debuggable [LLVM IR](https://llvm.org/), [QBE IL](https://c9x.me/compile/doc/il.html), C code, Javascript or Brainfuck output.
+This project parses brainfuck files, optimizes it, and generates debuggable [LLVM IR](https://llvm.org/), [QBE IL](https://c9x.me/compile/doc/il.html), C code, Javascript, native x86-64/ARM64 binaries, or Brainfuck output.
 
 If you output LLVM IR and compile your binaries with clang, you can use the `lldb` debugger tool to step through your brainfuck source, while watching the assembly internals! And you can debug the memory with `p mem` or `p p[0]` for example, or find the current pointer location with `p p-mem` and of course output the assembly code with `disassemble`.
 
@@ -14,10 +14,12 @@ The initial idea came when I saw the Youtuber [tsoding](https://www.youtube.com/
 * QBE Intermediate Language
 * C
 * C with inline ARM64 machine code (`carm64`)
+* C with inline x86-64 machine code (`camd64`)
 * Rust
 * Javascript (Node.js flavored)
 * Brainfuck
 * ARM64 Mach-O binary (direct, macOS only)
+* x86-64 ELF binary (direct, Linux only)
 
 ## Optimizations
 
@@ -112,11 +114,34 @@ cc brainfuck/tictactoe.s -target arm64-apple-darwin-macho -o tictactoe_arm64
 
 # Direct ARM64 Mach-O binary
 
-The `arm64` generator produces a standalone Mach-O executable directly — no assembler or linker needed. The output binary must be ad-hoc signed before it can run on macOS:
+The `darwin-arm64` generator produces a standalone Mach-O executable directly — no assembler or linker needed. The output binary must be ad-hoc signed before it can run on macOS:
 
 ```bash
-bfcompile -o -g arm64 -out tictactoe brainfuck/tictactoe.bf
+bfcompile -o -g darwin-arm64 -out tictactoe brainfuck/tictactoe.bf
 codesign --sign - tictactoe
 ./tictactoe
+```
+
+# Direct x86-64 ELF binary
+
+The `linux-amd64` generator produces a minimal static ELF executable directly — no assembler, linker, or libc needed. The binary uses Linux syscalls and runs on any x86-64 Linux system:
+
+```bash
+bfcompile -o -g linux-amd64 -out tictactoe brainfuck/tictactoe.bf
+./tictactoe
+```
+
+# C with embedded native code
+
+The `carm64` and `camd64` generators emit C source containing the compiled brainfuck program as embedded ARM64 or x86-64 machine code. The C wrapper uses `mmap` to allocate executable memory, copies the code in, and calls it. Compile with any C compiler:
+
+```bash
+# ARM64 (macOS)
+bfcompile -o -g carm64 brainfuck/tictactoe.bf > tictactoe.c
+cc tictactoe.c -o tictactoe
+
+# x86-64 (Linux)
+bfcompile -o -g camd64 brainfuck/tictactoe.bf > tictactoe.c
+cc tictactoe.c -o tictactoe
 ```
 
